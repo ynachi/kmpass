@@ -1,0 +1,91 @@
+---
+users:
+  - default
+  - name: ubuntu
+    gecos: Ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: users, admin, docker
+    shell: /bin/bash
+    ssh_import_id: None
+    lock_passwd: false
+    passwd: $6$rounds=4096$iZ8ODZ/7G9HmUtza$b6v0K347LXlW1tpIUWH47kUM9PUG8wQWNdhpETL446CNHaHloEcLo.1iJreVscrSa8AJiyWD7ZX1/jcpB9dWo.
+
+#cloud-config
+package_update: true
+package_upgrade: true
+
+apt:
+  # 1.1 preserve_sources_list
+  #
+  # Preserves the existing /etc/apt/sources.list
+  # Default: false - do overwrite sources_list. If set to true then any
+  # "mirrors" configuration will have no effect.
+  # Set to true to avoid affecting sources.list. In that case only
+  # "extra" source specifications will be written into
+  # /etc/apt/sources.list.d/*
+  preserve_sources_list: true
+  sources:
+    kubernetes.list:
+      source: "deb https://apt.kubernetes.io/ kubernetes-xenial main"
+      # got via wget -qO- https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --with-fingerprint --with-colons | awk -F: '/^fpr/ { print $10 }'
+      keyid: A362B822F6DEDC652817EA46B53DC80D13EDEF05
+      filename: kubernetes.list
+
+    docker.list:
+      source: "deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable"
+      keyid: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+      filename: docker.list
+
+packages:
+  - curl 
+  - apt-transport-https
+  - vim
+  - git
+  - wget
+  - gnupg2
+  - software-properties-common
+  - apt-transport-https
+  - ca-certificates
+  - kubelet=1.25.5-00 
+  - kubeadm=1.25.5-00 
+  - kubectl=1.25.5-00
+
+runcmd:
+ - [ sudo, modprobe, overlay ]
+ - [ sudo, modprobe, br_netfilter]
+ - [ sudo, sysctl, --system ]
+ - [ sudo, mkdir, -p, /etc/containerd ]
+ - sudo apt install -y containerd.io
+ - containerd config default | sudo tee /etc/containerd/config.toml
+ - sudo systemctl enable --now containerd
+ - sudo systemctl enable --now containerd
+ - sudo wget https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.25.0/crictl-v1.25.0-linux-amd64.tar.gz
+ - tar zxvf crictl-v1.25.0-linux-amd64.tar.gz
+ - sudo mv crictl /usr/local/bin
+ - sudo crictl config --set runtime-endpoint=unix:///run/containerd/containerd.sock --set image-endpoint=unix:///run/containerd/containerd.sock
+ - wget https://get.helm.sh/helm-v3.9.0-linux-amd64.tar.gz
+ - tar -xf helm-v3.9.0-linux-amd64.tar.gz
+ - sudo cp linux-amd64/helm /usr/local/bin
+ - curl -L --fail --remote-name-all https://github.com/cilium/cilium-cli/releases/download/$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/master/stable.txt)/cilium-linux-amd64.tar.gz{,.sha256sum}
+ - sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+ - sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
+
+write_files:
+    - content: |
+        # Written by cloud-init
+        net.bridge.bridge-nf-call-ip6tables = 1
+        net.bridge.bridge-nf-call-iptables = 1
+        net.ipv4.ip_forward = 1
+      path: /etc/sysctl.d/kubernetes.conf
+    - content: |
+        # Written by cloud-init
+        overlay
+        br_netfilter
+      path: /etc/modules-load.d/containerd.conf
+
+power_state:
+ delay: "+30"
+ mode: reboot
+ message: Bye Bye
+ timeout: 30
+ condition: True
