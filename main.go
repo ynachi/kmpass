@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	vm, err := app.New("2", "2G", "20G", "22.04", "yoa-bushit")
+	vm, err := app.New("2", "2G", "20G", "20.04", "yoa-bushit", "/home/ynachi/codes/github.com/kmpass2/app/clouds.yaml")
 	if err != nil {
 		fmt.Println("Failed to create VM")
 	}

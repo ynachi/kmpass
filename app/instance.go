@@ -39,12 +39,13 @@ type Instance struct {
 	CloudInitFile string
 	// Name of the cluster in wich this instance belongs to
 	Cluster string
-	// Image is the name of the image to use
+	// Image is the name of the image to use, on 20.04 works with our k8s script for now
 	Image string
 }
 
 // New returns a valid configuration of an instance or an error
-func New(cores string, memory string, disk string, image string, name string) (*Instance, error) {
+// cloudinit is the path of a cloud init script to pass to the method
+func New(cores string, memory string, disk string, image string, name string, cloudinit string) (*Instance, error) {
 	vmconfig := new(Instance)
 	if !validate(memory) {
 		return vmconfig, errors.New("invalid memory format")
@@ -61,7 +62,7 @@ func New(cores string, memory string, disk string, image string, name string) (*
 		Memory:        memory,
 		Disk:          disk,
 		Name:          name,
-		CloudInitFile: "",
+		CloudInitFile: cloudinit,
 		Cluster:       "",
 		Image:         image,
 	}
@@ -73,7 +74,11 @@ func (vm *Instance) Create() error {
 	if vm == nil {
 		return errors.New("cannot create vm from nil config")
 	}
-	cmd := exec.Command("multipass", "launch", vm.Image, "-n", vm.Name, "-d", vm.Disk, "-c", vm.Cores, "-m", vm.Memory)
+	cmdConfig := []string{"launch", vm.Image, "-n", vm.Name, "-d", vm.Disk, "-c", vm.Cores, "-m", vm.Memory, "--timeout", "600"}
+	if vm.CloudInitFile != "" {
+		cmdConfig = append(cmdConfig, "--cloud-init", vm.CloudInitFile)
+	}
+	cmd := exec.Command("multipass", cmdConfig...)
 	err := cmd.Start()
 	if err != nil {
 		Logger.Error("failed to start instance", err, "name", vm.Name)
