@@ -10,7 +10,7 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-// Application wide logger
+// Logger Application wide logger
 var Logger = slog.New(slog.NewJSONHandler(os.Stdout))
 
 // init logger
@@ -35,9 +35,9 @@ type Instance struct {
 	// Should be more than min disk
 	Disk string
 	Name string
-	// CloudInitFile is a path to a cloud init file. Not mendatory.
+	// CloudInitFile is a path to a cloud init file. Not mandatory.
 	CloudInitFile string
-	// Name of the cluster in wich this instance belongs to
+	// Name of the cluster in which this instance belongs to
 	Cluster string
 	// Image is the name of the image to use, on 20.04 works with our k8s script for now
 	Image string
@@ -71,6 +71,9 @@ func New(cores string, memory string, disk string, image string, name string, cl
 
 // Create creates a multipass instance
 func (vm *Instance) Create() error {
+	if err := checkMpassCmd(); err != nil {
+		return err
+	}
 	if vm == nil {
 		return errors.New("cannot create vm from nil config")
 	}
@@ -90,11 +93,11 @@ func (vm *Instance) Create() error {
 		return err
 	}
 	if cmd.ProcessState.ExitCode() != 0 {
-		err = errors.New("non 0 status code encontered by the create process")
+		err = errors.New("non 0 status code encountered by the create process")
 		Logger.Error("failed to start instance", err, "name", vm.Name, "cmdOutput")
 		return err
 	}
-	Logger.Info("instance created with sucess", "name", vm.Name)
+	Logger.Info("instance created with success", "name", vm.Name)
 	return nil
 }
 
