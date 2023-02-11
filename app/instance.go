@@ -2,21 +2,10 @@ package app
 
 import (
 	"errors"
-	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
-
-	"golang.org/x/exp/slog"
 )
-
-// Logger Application wide logger
-var Logger = slog.New(slog.NewJSONHandler(os.Stdout))
-
-// init logger
-func init() {
-	slog.SetDefault(Logger)
-}
 
 // MinMemory is the minimal acceptable memory for a VM instance
 const MinMemory = "512"
@@ -47,10 +36,10 @@ type Instance struct {
 // cloudinit is the path of a cloud init script to pass to the method
 func New(cores string, memory string, disk string, image string, name string, cloudinit string) (*Instance, error) {
 	vmconfig := new(Instance)
-	if !validate(memory) {
+	if !validateMemory(memory) {
 		return vmconfig, errors.New("invalid memory format")
 	}
-	if !validate(disk) {
+	if !validateMemory(disk) {
 		return vmconfig, errors.New("invalid memory format")
 	}
 	_, err := strconv.Atoi(cores)
@@ -101,8 +90,8 @@ func (vm *Instance) Create() error {
 	return nil
 }
 
-// validate checks if an instance memory or disk size is valid
-func validate(size string) bool {
+// validateMemory checks if an instance memory or disk size is valid
+func validateMemory(size string) bool {
 	re := regexp.MustCompile(`\d*(K|M|G|k|m|g)`)
 	return re.MatchString(size)
 }
