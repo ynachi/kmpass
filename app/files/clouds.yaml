@@ -102,6 +102,5 @@ write_files:
     bSBqb2luIGNvbW1hbmQgZnJvbSIKZWNobyAiY29udHJvbCBwbGFuZS4iCmVjaG8KZWNobyAnKioq
     KioqKioqKioqKioqKioqKioqKioqKioqJwplY2hvCmVjaG8KCg==
 
-
 runcmd:
  - [ sudo, /tmp/install.sh ]
