@@ -1,7 +1,6 @@
 package app
 
 import (
-	"embed"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -12,9 +11,6 @@ const minCtrlNodes = 3
 
 // minCmpNodes is the minimum number of compute nodes
 const minCmpNodes = 1
-
-//go:embed files/*
-var Files embed.FS
 
 // Cluster is a struct representing a kubernetes cluster.
 // The minimum number of control nodes is 3 and the minimum of compute nodes is 1.
@@ -50,7 +46,7 @@ func (cluster *Cluster) generateConfig() {
 // generateLBConfig generates the control plane LB configuration file.
 func (cluster *Cluster) generateLBConfig() (string, error) {
 	tmpDir := os.TempDir()
-	parsedTpl, err := template.ParseFS(Files, "files/haproxy.cfg.tpl")
+	parsedTpl, err := template.ParseFiles("app/files/haproxy.cfg.tpl")
 	tmpFilePath := filepath.Join(tmpDir, "haproxy.cfg")
 	tmpFile, err := os.Create(tmpFilePath)
 	if err != nil {

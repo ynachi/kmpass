@@ -26,7 +26,7 @@ func (config BootstrapConfig) updateCloudinitNodesHelper() error {
 		Logger.Error("cannot get home dir", err)
 		return ErrGetHomeDirectory
 	}
-	parsedTemplate, err := template.ParseFS(Files, "files/clouds.yaml.tpl")
+	parsedTemplate, err := template.ParseFiles("app/files/clouds.yaml.tpl")
 	if err != nil {
 		Logger.Error("unable to load Go template file file", err, "filename", "files/clouds.yaml.tpl")
 		return ErrLoadTemplate
