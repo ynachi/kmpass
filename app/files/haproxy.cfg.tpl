@@ -48,21 +48,23 @@ frontend stats
 listen kube-api-6443
   bind *:6443
   mode tcp
-  {{range $i, $ip := .CtrlNodesIPs}}
-  server ctrl{{$i}} {{$ip}}:6443 check inter 1s backup
-  {{end}}
+  {{- range $i, $ip := .CtrlNodesIPs}}
+  server ctrl{{$i -}} {{$ip -}}:6443 check inter 1s backup
+  {{- end}}
+
 listen ingress-router-443
   bind *:443
   mode tcp
   balance source
-  {{range $i, $ip := .CmpNodesIPs}}
-  server cmp{{$i}} {{$ip}}:443 check inter 1s backup
-  {{end}}
+  {{- range $i, $ip := .CmpNodesIPs}}
+  server cmp{{$i -}} {{$ip -}}:443 check inter 1s backup
+  {{- end}}
+
 listen ingress-router-80
   bind *:80
   mode tcp
   balance source
-  {{range $i, $ip := .CmpNodesIPs}}
-  server cmp{{$i}} {{$ip}}:80 check inter 1s backup
-  {{end}}
+  {{- range $i, $ip := .CmpNodesIPs}}
+  server cmp{{$i -}} {{$ip -}}:80 check inter 1s backup
+  {{- end}}
 
