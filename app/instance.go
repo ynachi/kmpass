@@ -60,9 +60,6 @@ func New(cores string, memory string, disk string, image string, name string, cl
 
 // Create creates a multipass instance
 func (vm *Instance) Create() error {
-	if err := checkMpassCmd(); err != nil {
-		return err
-	}
 	if vm == nil {
 		return errors.New("cannot create vm from nil config")
 	}
@@ -94,10 +91,4 @@ func (vm *Instance) Create() error {
 func validateMemory(size string) bool {
 	re := regexp.MustCompile(`\d*(K|M|G|k|m|g)`)
 	return re.MatchString(size)
-}
-
-// checkMpassCmd checks if multipass command is available
-func checkMpassCmd() error {
-	_, err := exec.LookPath("multipass")
-	return err
 }

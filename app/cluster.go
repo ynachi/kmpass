@@ -1,6 +1,7 @@
 package app
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -33,8 +34,34 @@ type Cluster struct {
 }
 
 // validateConfig checks if cluster configuration is valid.
+// It checks Disk sizes, memory sizes, and validity of IP addresses
 func (cluster *Cluster) validateConfig() error {
+	if !(validateMemory(cluster.LBNodeMemory) && validateMemory(cluster.CtrlNodesMemory) && validateMemory(cluster.CmpNodesMemory)) {
+		return ErrMinMemSize
+	}
+	if !(validateMemory(cluster.LBNodeDiskSize) && validateMemory(cluster.CtrlNodesDiskSize) && validateMemory(cluster.CmpNodesDiskSize)) {
+		return ErrMinDiskSize
+	}
+	if areValidIPs(cluster.PublicAPIEndpoint) {
+		return ErrInvalidIPV4Address
+	}
+	if areValidIPs(cluster.CtrlNodesIPs...) {
+		return ErrInvalidIPV4Address
+	}
+	if areValidIPs(cluster.CmpNodesIPs...) {
+		return ErrInvalidIPV4Address
+	}
 	return nil
+}
+
+func areValidIPs(ips ...string) bool {
+	for _, ip := range ips {
+		ipObject := net.ParseIP(ip)
+		if ipObject == nil {
+			return false
+		}
+	}
+	return true
 }
 
 // generateConfig creates a kubernetes cluster config file to be used by kubeadm init.

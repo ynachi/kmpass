@@ -31,7 +31,11 @@ func (config BootstrapConfig) updateCloudinitNodesHelper() error {
 		Logger.Error("unable to load Go template file file", err, "filename", "files/clouds.yaml.tpl")
 		return ErrLoadTemplate
 	}
-	os.MkdirAll(homeDir+"/kmpass", 0770)
+	err = os.MkdirAll(homeDir+"/kmpass", 0770)
+	if err != nil {
+		Logger.Error("unable to load Go template file file", err, "filename", "files/clouds.yaml.tpl")
+		return ErrLoadTemplate
+	}
 	outFilePath := filepath.Join(homeDir, "kmpass", "nodes-cloudinit.yaml")
 	outFile, err := os.Create(outFilePath)
 	if err != nil {
