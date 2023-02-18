@@ -22,6 +22,8 @@ type Cluster struct {
 	// List of IPs for the compute node. Minimum 1.
 	CmpNodesIPs      []string
 	CmpNodesMemory   string
+	CmpNodesCores    int
+	NodesDiskSize    string
 	CmpNodesDiskSize string
 	// List of IPs for the control node. Minimum 3.
 	CtrlNodesIPs      []string
@@ -35,20 +37,21 @@ type Cluster struct {
 
 // validateConfig checks if cluster configuration is valid.
 // It checks Disk sizes, memory sizes, and validity of IP addresses
+// @TODO; add more validation (duplicate IPs, PodSubnet, memory and disk sizes)
 func (cluster *Cluster) validateConfig() error {
-	if !(validateMemory(cluster.LBNodeMemory) && validateMemory(cluster.CtrlNodesMemory) && validateMemory(cluster.CmpNodesMemory)) {
-		return ErrMinMemSize
+	if !(validateMemoryFormat(cluster.LBNodeMemory) && validateMemoryFormat(cluster.CtrlNodesMemory) && validateMemoryFormat(cluster.CmpNodesMemory)) {
+		return ErrMemFormat
 	}
-	if !(validateMemory(cluster.LBNodeDiskSize) && validateMemory(cluster.CtrlNodesDiskSize) && validateMemory(cluster.CmpNodesDiskSize)) {
-		return ErrMinDiskSize
+	if !(validateMemoryFormat(cluster.LBNodeDiskSize) && validateMemoryFormat(cluster.CtrlNodesDiskSize) && validateMemoryFormat(cluster.CmpNodesDiskSize)) {
+		return ErrMemFormat
 	}
-	if areValidIPs(cluster.PublicAPIEndpoint) {
+	if !areValidIPs(cluster.PublicAPIEndpoint) {
 		return ErrInvalidIPV4Address
 	}
-	if areValidIPs(cluster.CtrlNodesIPs...) {
+	if !areValidIPs(cluster.CtrlNodesIPs...) {
 		return ErrInvalidIPV4Address
 	}
-	if areValidIPs(cluster.CmpNodesIPs...) {
+	if !areValidIPs(cluster.CmpNodesIPs...) {
 		return ErrInvalidIPV4Address
 	}
 	return nil
