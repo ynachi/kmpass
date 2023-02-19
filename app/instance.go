@@ -32,19 +32,19 @@ type Instance struct {
 	Image string
 }
 
-// New returns a valid configuration of an instance or an error
+// NewInstanceConfig returns a valid configuration of an instance or an error
 // cloudinit is the path of a cloud init script to pass to the method
-func New(cores string, memory string, disk string, image string, name string, cloudinit string) (*Instance, error) {
+func NewInstanceConfig(cores string, memory string, disk string, image string, name string, cloudinit string) (*Instance, error) {
 	vmconfig := new(Instance)
 	if !validateMemoryFormat(memory) {
-		return vmconfig, errors.New("invalid memory format")
+		return vmconfig, ErrMemFormat
 	}
 	if !validateMemoryFormat(disk) {
-		return vmconfig, errors.New("invalid memory format")
+		return vmconfig, ErrMemFormat
 	}
 	_, err := strconv.Atoi(cores)
 	if err != nil {
-		return vmconfig, errors.New("invalid core format")
+		return vmconfig, ErrInvalidCoreFmt
 	}
 	vmconfig = &Instance{
 		Cores:         cores,
@@ -87,8 +87,7 @@ func (vm *Instance) Create() error {
 	return nil
 }
 
-// validateMemoryFormat checks if an instance memory or disk size is valid
-// eg: 4G
+// validateMemoryFormat checks if an instance memory or disk size is valid. eg: 4G
 func validateMemoryFormat(size string) bool {
 	re := regexp.MustCompile(`^[1-9][0-9]*(K|M|G|k|m|g)$`)
 	return re.MatchString(size)
