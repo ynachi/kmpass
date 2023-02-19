@@ -15,6 +15,8 @@ type BootstrapConfig struct {
 	LBConfigFile string
 	// @TODO, set kube version
 	// KubeVersion string
+	// KubeadmInitConfig is the yaml file used to bootstrap the cluster using kubeadm
+	KubeadmInitConfig string
 }
 
 // updateCloudinitNodes updates the nodes cloudinit file. There is a placeholder in this cloudinit file for a
@@ -50,9 +52,13 @@ func (config BootstrapConfig) updateCloudinitNodesHelper() error {
 }
 
 func UpdateCloudinitNodes(cluster *Cluster) error {
-	lbConfPath, err := cluster.generateLBConfig()
+	lbConfPath, err := cluster.generateConfigFromTemplate("app/files/haproxy.cfg.tpl", "haproxy.cfg")
 	if err != nil {
 		Logger.Error("unable to generate lb config file", err, "cluster", cluster.Name)
+	}
+	kubeadmInitConfPath, err := cluster.generateConfigFromTemplate("app/files/cluster.yaml.tpl", "cluster.yaml")
+	if err != nil {
+		Logger.Error("unable to generate kubeadm config file", err, "cluster", cluster.Name)
 	}
 	bootstrapConfig := BootstrapConfig{}
 	encodedBootstrapScript, err := EncodeFileB64("app/files/install.sh")
@@ -65,7 +71,13 @@ func UpdateCloudinitNodes(cluster *Cluster) error {
 		Logger.Error("unable to encode file", err, "filename", "haproxy.cfg")
 		return ErrBase64Encode
 	}
+	encodedKubeadmInitConfig, err := EncodeFileB64(kubeadmInitConfPath)
+	if err != nil {
+		Logger.Error("unable to encode file", err, "filename", "cluster.yaml")
+		return ErrBase64Encode
+	}
 	bootstrapConfig.NodeBootstrapScript = encodedBootstrapScript
 	bootstrapConfig.LBConfigFile = encodedLBConfig
+	bootstrapConfig.KubeadmInitConfig = encodedKubeadmInitConfig
 	return bootstrapConfig.updateCloudinitNodesHelper()
 }

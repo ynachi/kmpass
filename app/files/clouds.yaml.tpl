@@ -18,7 +18,7 @@ write_files:
 - encoding: b64
   owner: ubuntu:ubuntu
   path: /tmp/install.sh
-  permissions: '0551'
+  permissions: '1551'
   content: |
     {{.NodeBootstrapScript}}
 - encoding: b64
@@ -27,6 +27,12 @@ write_files:
   permissions: '0440'
   content: |
     {{.LBConfigFile}}
+- encoding: b64
+  owner: ubuntu:ubuntu
+  path: /tmp/cluster.yaml
+  permissions: '1551'
+  content: |
+    {{.KubeadmInitConfig}}
 
 runcmd:
  - [ sudo, /tmp/install.sh ]

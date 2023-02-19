@@ -15,5 +15,6 @@ var (
 	ErrBase64Encode       = errors.New("cannot encode file to b64")
 	ErrMinDiskSize        = errors.New("disk size cannot be less than required minimum")
 	ErrMinMemSize         = errors.New("memory size cannot be less than required minimum")
+	ErrMemFormat          = errors.New("memory format should be like <number>K|M|G|k|m|g")
 	ErrInvalidIPV4Address = errors.New("invalid IP address provided")
 )

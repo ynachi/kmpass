@@ -37,7 +37,7 @@ type Cluster struct {
 
 // validateConfig checks if cluster configuration is valid.
 // It checks Disk sizes, memory sizes, and validity of IP addresses
-// @TODO; add more validation (duplicate IPs, PodSubnet, memory and disk sizes)
+// @TODO; add more validation (duplicate IPs, PodSubnet, memory and disk sizes, number of nodes)
 func (cluster *Cluster) validateConfig() error {
 	if !(validateMemoryFormat(cluster.LBNodeMemory) && validateMemoryFormat(cluster.CtrlNodesMemory) && validateMemoryFormat(cluster.CmpNodesMemory)) {
 		return ErrMemFormat
@@ -67,17 +67,12 @@ func areValidIPs(ips ...string) bool {
 	return true
 }
 
-// generateConfig creates a kubernetes cluster config file to be used by kubeadm init.
-// The configuration file is generated via a template and uploaded to the ctrl nodes via cloud-init.
-func (cluster *Cluster) generateConfig() {
-
-}
-
-// generateLBConfig generates the control plane LB configuration file.
-func (cluster *Cluster) generateLBConfig() (string, error) {
+// generateConfigFromTemplate configuration files from templates. Will be used to generate LB and kubernetes
+// configurations.
+func (cluster *Cluster) generateConfigFromTemplate(templatePath string, outFileName string) (string, error) {
 	tmpDir := os.TempDir()
-	parsedTpl, err := template.ParseFiles("app/files/haproxy.cfg.tpl")
-	tmpFilePath := filepath.Join(tmpDir, "haproxy.cfg")
+	parsedTpl, err := template.ParseFiles(templatePath)
+	tmpFilePath := filepath.Join(tmpDir, outFileName)
 	tmpFile, err := os.Create(tmpFilePath)
 	if err != nil {
 		Logger.Error("unable to parse template", err)

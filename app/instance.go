@@ -8,7 +8,7 @@ import (
 )
 
 // MinMemory is the minimal acceptable memory for a VM instance
-const MinMemory = "512"
+const MinMemory = "2G"
 
 // MinDisk is the minimal disk size that can be assigned to a VM instance
 const MinDisk = "1G"
@@ -36,10 +36,10 @@ type Instance struct {
 // cloudinit is the path of a cloud init script to pass to the method
 func New(cores string, memory string, disk string, image string, name string, cloudinit string) (*Instance, error) {
 	vmconfig := new(Instance)
-	if !validateMemory(memory) {
+	if !validateMemoryFormat(memory) {
 		return vmconfig, errors.New("invalid memory format")
 	}
-	if !validateMemory(disk) {
+	if !validateMemoryFormat(disk) {
 		return vmconfig, errors.New("invalid memory format")
 	}
 	_, err := strconv.Atoi(cores)
@@ -87,8 +87,9 @@ func (vm *Instance) Create() error {
 	return nil
 }
 
-// validateMemory checks if an instance memory or disk size is valid
-func validateMemory(size string) bool {
-	re := regexp.MustCompile(`\d*(K|M|G|k|m|g)`)
+// validateMemoryFormat checks if an instance memory or disk size is valid
+// eg: 4G
+func validateMemoryFormat(size string) bool {
+	re := regexp.MustCompile(`^[1-9][0-9]*(K|M|G|k|m|g)$`)
 	return re.MatchString(size)
 }
