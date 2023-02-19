@@ -11,18 +11,14 @@ import (
 type BootstrapConfig struct {
 	// Base64 encoded node bootstrap script. Can leverage EncodeFileB64 function for that
 	NodeBootstrapScript string
-	// Base64 encoded lb config file. Can leverage EncodeFileB64 function for that
-	LBConfigFile string
 	// @TODO, set kube version
 	// KubeVersion string
-	// KubeadmInitConfig is the yaml file used to bootstrap the cluster using kubeadm
-	KubeadmInitConfig string
 }
 
 // updateCloudinitNodes updates the nodes cloudinit file. There is a placeholder in this cloudinit file for a
 // bootstrap shell script which install the prerequisites for kubernetes. This script can be updated with some
 // parameters like Kubernetes version.
-func (config BootstrapConfig) updateCloudinitNodesHelper() error {
+func (config BootstrapConfig) updateCloudinitHelper() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		Logger.Error("cannot get home dir", err)
@@ -51,7 +47,10 @@ func (config BootstrapConfig) updateCloudinitNodesHelper() error {
 	return nil
 }
 
-func UpdateCloudinitNodes(cluster *Cluster) error {
+// GenerateClusterConfigs generates configuration files used to bootstrap the cluster. These configuration files
+// include the lb conf, the kubeadm bootstrap yaml file and the nodes cloudinit.
+// returns LBConfPath, kubeadmInitConfPath
+func GenerateClusterConfigs(cluster *Cluster) (string, string, error) {
 	lbConfPath, err := cluster.generateConfigFromTemplate("app/files/haproxy.cfg.tpl", "haproxy.cfg")
 	if err != nil {
 		Logger.Error("unable to generate lb config file", err, "cluster", cluster.Name)
@@ -64,20 +63,8 @@ func UpdateCloudinitNodes(cluster *Cluster) error {
 	encodedBootstrapScript, err := EncodeFileB64("app/files/install.sh")
 	if err != nil {
 		Logger.Error("unable to encode file", err, "filename", "install.sh")
-		return ErrBase64Encode
-	}
-	encodedLBConfig, err := EncodeFileB64(lbConfPath)
-	if err != nil {
-		Logger.Error("unable to encode file", err, "filename", "haproxy.cfg")
-		return ErrBase64Encode
-	}
-	encodedKubeadmInitConfig, err := EncodeFileB64(kubeadmInitConfPath)
-	if err != nil {
-		Logger.Error("unable to encode file", err, "filename", "cluster.yaml")
-		return ErrBase64Encode
+		return "", "", ErrBase64Encode
 	}
 	bootstrapConfig.NodeBootstrapScript = encodedBootstrapScript
-	bootstrapConfig.LBConfigFile = encodedLBConfig
-	bootstrapConfig.KubeadmInitConfig = encodedKubeadmInitConfig
-	return bootstrapConfig.updateCloudinitNodesHelper()
+	return lbConfPath, kubeadmInitConfPath, bootstrapConfig.updateCloudinitHelper()
 }

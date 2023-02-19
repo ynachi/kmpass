@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -84,6 +85,33 @@ func (vm *Instance) Create() error {
 		return err
 	}
 	Logger.Info("instance created with success", "name", vm.Name)
+	return nil
+}
+
+// Transfer transfers a file to the temp folder of an Instance. It leverages multipass transfer command. dest is
+// the name of the dest file. It will appear in the VM as /tmp/dest
+func (vm *Instance) Transfer(src string, dst string) error {
+	if vm == nil {
+		return errors.New("cannot create vm from nil config")
+	}
+	cmdConfig := []string{"transfer", src, fmt.Sprintf("%s:/tmp/%s", vm.Name, dst)}
+	cmd := exec.Command("multipass", cmdConfig...)
+	err := cmd.Start()
+	if err != nil {
+		Logger.Error("failed to copy file to instance", err, "name", vm.Name, "src", src, "dst", dst)
+		return err
+	}
+	err = cmd.Wait()
+	if err != nil {
+		Logger.Error("failed to copy file to instance", err, "name", vm.Name, "src", src, "dst", dst)
+		return err
+	}
+	if cmd.ProcessState.ExitCode() != 0 {
+		err = errors.New("non 0 status code encountered by the file copy command")
+		Logger.Error("failed to copy file to instance", err, "name", vm.Name, "src", src, "dst", dst)
+		return err
+	}
+	Logger.Info("file copied with success", "name", vm.Name, "src", src, "dst", dst)
 	return nil
 }
 

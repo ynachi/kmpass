@@ -70,21 +70,21 @@ func areValidIPs(ips ...string) bool {
 // generateConfigFromTemplate configuration files from templates. Will be used to generate LB and kubernetes
 // configurations.
 func (cluster *Cluster) generateConfigFromTemplate(templatePath string, outFileName string) (string, error) {
-	tmpDir := os.TempDir()
+	homeDir, err := os.UserHomeDir()
 	parsedTpl, err := template.ParseFiles(templatePath)
-	tmpFilePath := filepath.Join(tmpDir, outFileName)
-	tmpFile, err := os.Create(tmpFilePath)
+	filePath := filepath.Join(homeDir, "kmpass", outFileName)
+	file, err := os.Create(filePath)
 	if err != nil {
 		Logger.Error("unable to parse template", err)
-		return tmpFilePath, ErrParseTemplate
+		return filePath, ErrParseTemplate
 	}
 	if err != nil {
 		Logger.Error("unable to create temp file", err)
-		return tmpFilePath, ErrCreateFile
+		return filePath, ErrCreateFile
 	}
-	if err := parsedTpl.Execute(tmpFile, *cluster); err != nil {
+	if err := parsedTpl.Execute(file, *cluster); err != nil {
 		Logger.Error("unable to parse template", err)
-		return tmpFilePath, ErrParseTemplate
+		return filePath, ErrParseTemplate
 	}
-	return tmpFilePath, nil
+	return filePath, nil
 }

@@ -20,7 +20,7 @@ func main() {
 		CmpNodesIPs:       []string{"10.10.10.11", "10.10.10.12", "10.10.10.13"},
 		CtrlNodesIPs:      []string{"10.10.10.1", "10.10.10.2", "10.10.10.3"},
 	}
-	err := app.UpdateCloudinitNodes(cluster)
+	lbConfPath, kubeadmConfPath, err := app.GenerateClusterConfigs(cluster)
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		app.Logger.Error("cannot get home dir", err)
@@ -29,4 +29,6 @@ func main() {
 	vmCfg, err := app.NewInstanceConfig("2", "8G", "20G", "20.04", "v500", cloudInitPath)
 	fmt.Println(err)
 	vmCfg.Create()
+	vmCfg.Transfer(lbConfPath, "haproxy.cfg")
+	vmCfg.Transfer(kubeadmConfPath, "cluster.yaml")
 }

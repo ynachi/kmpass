@@ -17,16 +17,6 @@ write_files:
   path: /tmp/install.sh
   permissions: '1551'
   content: {{.NodeBootstrapScript}}
-- encoding: b64
-  owner: ubuntu:ubuntu
-  path: /tmp/haproxy.cfg
-  permissions: '0440'
-  content: {{.LBConfigFile}}
-- encoding: b64
-  owner: ubuntu:ubuntu
-  path: /tmp/cluster.yaml
-  permissions: '1551'
-  content: {{.KubeadmInitConfig}}
 
 runcmd:
  - [ sudo, /tmp/install.sh ]
