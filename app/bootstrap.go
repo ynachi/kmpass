@@ -18,7 +18,7 @@ type BootstrapConfig struct {
 // updateCloudinitNodes updates the nodes cloudinit file. There is a placeholder in this cloudinit file for a
 // bootstrap shell script which install the prerequisites for kubernetes. This script can be updated with some
 // parameters like Kubernetes version.
-func (config BootstrapConfig) updateCloudinitHelper() error {
+func (config BootstrapConfig) updateCloudinit() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		Logger.Error("cannot get home dir", err)
@@ -66,5 +66,5 @@ func GenerateClusterConfigs(cluster *Cluster) (string, string, error) {
 		return "", "", ErrBase64Encode
 	}
 	bootstrapConfig.NodeBootstrapScript = encodedBootstrapScript
-	return lbConfPath, kubeadmInitConfPath, bootstrapConfig.updateCloudinitHelper()
+	return lbConfPath, kubeadmInitConfPath, bootstrapConfig.updateCloudinit()
 }
