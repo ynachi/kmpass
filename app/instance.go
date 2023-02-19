@@ -1,11 +1,13 @@
 package app
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os/exec"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // MinMemory is the minimal acceptable memory for a VM instance
@@ -92,7 +94,13 @@ func (vm *Instance) Create() error {
 // the name of the dest file. It will appear in the VM as /tmp/dest
 func (vm *Instance) Transfer(src string, dst string) error {
 	if vm == nil {
-		return errors.New("cannot create vm from nil config")
+		return errors.New("cannot transfer to nil VM")
+	}
+	if !vm.Exist() {
+		return ErrVMNotExist
+	}
+	if !vm.IsStopped() {
+		return ErrVMNotRunning
 	}
 	cmdConfig := []string{"transfer", src, fmt.Sprintf("%s:/tmp/%s", vm.Name, dst)}
 	cmd := exec.Command("multipass", cmdConfig...)
@@ -113,6 +121,65 @@ func (vm *Instance) Transfer(src string, dst string) error {
 	}
 	Logger.Info("file copied with success", "name", vm.Name, "src", src, "dst", dst)
 	return nil
+}
+
+// RunCmd run commands on a VM. It leverages multipass exec command. The command does not necessarily happen inside the
+// VM. It can be something which get information on the VM.
+func (vm *Instance) RunCmd(args []string) (string, error) {
+	if vm == nil {
+		return "", errors.New("cannot run command on nil VM")
+	}
+	cmd := exec.Command("multipass", args...)
+	output := bytes.Buffer{}
+	cmd.Stdout = &output
+	err := cmd.Start()
+	if err != nil {
+		Logger.Error("failed to run cmd on instance 1", err, "name", vm.Name, "args", args)
+		return "", err
+	}
+	err = cmd.Wait()
+	if err != nil {
+		Logger.Error("failed to run cmd on instance 3", err, "name", vm.Name, "args", args)
+		return "", err
+	}
+	if cmd.ProcessState.ExitCode() != 0 {
+		err = errors.New("non 0 status code encountered by the file copy command")
+		Logger.Error("failed to run cmd on instance 2", err, "name", vm.Name, "args", args)
+		return "", err
+	}
+	Logger.Info("file copied with success", "name", vm.Name)
+	return output.String(), nil
+}
+
+// state returns the state of a VM: Running, Stopped, NotExist
+func (vm *Instance) state() (string, error) {
+	args := []string{"info", vm.Name}
+	out, err := vm.RunCmd(args)
+	if err != nil {
+		if !strings.Contains(out, "does not exist") {
+			return "", err
+		}
+		return "NotExist", nil
+	}
+	return strings.Fields(out)[3], nil
+}
+
+// IsRunning checks whether a VM is running
+func (vm *Instance) IsRunning() bool {
+	state, _ := vm.state()
+	return state == "Running"
+}
+
+// Exist checks whether a VM is already created on the host
+func (vm *Instance) Exist() bool {
+	state, _ := vm.state()
+	return state != "NotExist"
+}
+
+// IsStopped checks whether a VM is stopped
+func (vm *Instance) IsStopped() bool {
+	state, _ := vm.state()
+	return state == "Stopped"
 }
 
 // validateMemoryFormat checks if an instance memory or disk size is valid. eg: 4G

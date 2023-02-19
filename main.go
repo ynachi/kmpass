@@ -28,7 +28,11 @@ func main() {
 	cloudInitPath := filepath.Join(homeDir, "kmpass", "cloudinit.yaml")
 	vmCfg, err := app.NewInstanceConfig("2", "8G", "20G", "20.04", "v500", cloudInitPath)
 	fmt.Println(err)
-	vmCfg.Create()
+	if !vmCfg.Exist() {
+		vmCfg.Create()
+	} else {
+		fmt.Println("VM already exist, doing nothing")
+	}
 	vmCfg.Transfer(lbConfPath, "haproxy.cfg")
 	vmCfg.Transfer(kubeadmConfPath, "cluster.yaml")
 }

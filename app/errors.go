@@ -18,4 +18,6 @@ var (
 	ErrMemFormat          = errors.New("memory format should be like <number>K|M|G|k|m|g")
 	ErrInvalidIPV4Address = errors.New("invalid IP address provided")
 	ErrInvalidCoreFmt     = errors.New("invalid number of core, integer required")
+	ErrVMNotExist         = errors.New("vm does not exist")
+	ErrVMNotRunning       = errors.New("VM is not running")
 )
