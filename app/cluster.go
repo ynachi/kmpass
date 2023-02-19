@@ -45,19 +45,19 @@ func (cluster *Cluster) validateConfig() error {
 	if !(validateMemoryFormat(cluster.LBNodeDiskSize) && validateMemoryFormat(cluster.CtrlNodesDiskSize) && validateMemoryFormat(cluster.CmpNodesDiskSize)) {
 		return ErrMemFormat
 	}
-	if !areValidIPs(cluster.PublicAPIEndpoint) {
+	if !validateIPs(cluster.PublicAPIEndpoint) {
 		return ErrInvalidIPV4Address
 	}
-	if !areValidIPs(cluster.CtrlNodesIPs...) {
+	if !validateIPs(cluster.CtrlNodesIPs...) {
 		return ErrInvalidIPV4Address
 	}
-	if !areValidIPs(cluster.CmpNodesIPs...) {
+	if !validateIPs(cluster.CmpNodesIPs...) {
 		return ErrInvalidIPV4Address
 	}
 	return nil
 }
 
-func areValidIPs(ips ...string) bool {
+func validateIPs(ips ...string) bool {
 	for _, ip := range ips {
 		ipObject := net.ParseIP(ip)
 		if ipObject == nil {
