@@ -1,7 +1,6 @@
 package app
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -124,62 +123,43 @@ func (vm *Instance) Transfer(src string, dst string) error {
 }
 
 // RunCmd run commands on a VM. It leverages multipass exec command. The command does not necessarily happen inside the
-// VM. It can be something which get information on the VM.
+// VM. It can be something which get information on the VM. Returns the combined output (stderr + stdout) of the
+// command and an error.
 func (vm *Instance) RunCmd(args []string) (string, error) {
 	if vm == nil {
-		return "", errors.New("cannot run command on nil VM")
+		return "", fmt.Errorf("cannot run command on nil VM")
 	}
 	cmd := exec.Command("multipass", args...)
-	output := bytes.Buffer{}
-	cmd.Stdout = &output
-	err := cmd.Start()
-	if err != nil {
-		Logger.Error("failed to run cmd on instance 1", err, "name", vm.Name, "args", args)
-		return "", err
-	}
-	err = cmd.Wait()
-	if err != nil {
-		Logger.Error("failed to run cmd on instance 3", err, "name", vm.Name, "args", args)
-		return "", err
-	}
-	if cmd.ProcessState.ExitCode() != 0 {
-		err = errors.New("non 0 status code encountered by the file copy command")
-		Logger.Error("failed to run cmd on instance 2", err, "name", vm.Name, "args", args)
-		return "", err
-	}
-	Logger.Info("file copied with success", "name", vm.Name)
-	return output.String(), nil
+	output, err := cmd.CombinedOutput()
+	return string(output), err
 }
 
 // state returns the state of a VM: Running, Stopped, NotExist
-func (vm *Instance) state() (string, error) {
+func (vm *Instance) state() string {
 	args := []string{"info", vm.Name}
 	out, err := vm.RunCmd(args)
 	if err != nil {
 		if !strings.Contains(out, "does not exist") {
-			return "", err
+			return "NotSupported"
 		}
-		return "NotExist", nil
+		return "NotExist"
 	}
-	return strings.Fields(out)[3], nil
+	return strings.Fields(out)[3]
 }
 
 // IsRunning checks whether a VM is running
 func (vm *Instance) IsRunning() bool {
-	state, _ := vm.state()
-	return state == "Running"
+	return vm.state() == "Running"
 }
 
 // Exist checks whether a VM is already created on the host
 func (vm *Instance) Exist() bool {
-	state, _ := vm.state()
-	return state != "NotExist"
+	return vm.state() != "NotExist"
 }
 
 // IsStopped checks whether a VM is stopped
 func (vm *Instance) IsStopped() bool {
-	state, _ := vm.state()
-	return state == "Stopped"
+	return vm.state() == "Stopped"
 }
 
 // validateMemoryFormat checks if an instance memory or disk size is valid. eg: 4G
