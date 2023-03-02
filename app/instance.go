@@ -98,7 +98,7 @@ func (vm *Instance) Transfer(src string, dst string) error {
 	if !vm.Exist() {
 		return ErrVMNotExist
 	}
-	if !vm.IsStopped() {
+	if vm.IsStopped() {
 		return ErrVMNotRunning
 	}
 	cmdConfig := []string{"transfer", src, fmt.Sprintf("%s:/tmp/%s", vm.Name, dst)}
