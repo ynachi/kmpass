@@ -122,29 +122,41 @@ func (vm *Instance) Transfer(src string, dst string) error {
 	return nil
 }
 
-// RunCmd run commands on a VM. It leverages multipass exec command. The command does not necessarily happen inside the
-// VM. It can be something which get information on the VM. Returns the combined output (stderr + stdout) of the
-// command and an error.
+// CmdType the type of command we run with instance.RunCmd() method.
+// Type 1 is run inside the VM like apt-get install. The other one
+// ia run outside the VM, typically to get some info, multipass vm info.
+type CmdType string
+
+// RunCmd run commands in a VM. It leverages multipass exec command. Returns the combined output (stderr + stdout) of
+// the command and an error.
 func (vm *Instance) RunCmd(args []string) (string, error) {
 	if vm == nil {
 		return "", fmt.Errorf("cannot run command on nil VM")
 	}
+	args = append([]string{"exec", vm.Name, "--"}, args...)
 	cmd := exec.Command("multipass", args...)
 	output, err := cmd.CombinedOutput()
 	return string(output), err
 }
 
 // state returns the state of a VM: Running, Stopped, NotExist
+// This method should not be run on a nil instance of vm. But if it is done, it will not return an error (we do not
+// want this method to error. But a warning log will be fired in that case.
 func (vm *Instance) state() string {
+	if vm == nil {
+		Logger.Warn("cannot get the state of a nil VM", "name", vm.Name)
+		return "NotSupported"
+	}
 	args := []string{"info", vm.Name}
-	out, err := vm.RunCmd(args)
+	cmd := exec.Command("multipass", args...)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		if !strings.Contains(out, "does not exist") {
+		if !strings.Contains(string(out), "does not exist") {
 			return "NotSupported"
 		}
 		return "NotExist"
 	}
-	return strings.Fields(out)[3]
+	return strings.Fields(string(out))[3]
 }
 
 // IsRunning checks whether a VM is running

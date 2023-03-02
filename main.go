@@ -31,4 +31,7 @@ func main() {
 	}
 	vmCfg.Transfer(lbConfPath, "haproxy.cfg")
 	vmCfg.Transfer(kubeadmConfPath, "cluster.yaml")
+	out, err := vmCfg.RunCmd([]string{"sudo", "apt-get", "install", "haproxy", "-y"})
+	fmt.Println(out)
+	fmt.Println(err)
 }
