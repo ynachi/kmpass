@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/ynachi/kmpass/app"
 )
 
@@ -22,7 +23,7 @@ func main() {
 	if err != nil {
 		app.Logger.Error("cannot get home dir", err)
 	}
-	vmCfg, err := app.NewInstanceConfig("2", "8G", "20G", "20.04", "v500", cloudInitPath)
+	vmCfg, err := app.NewInstanceConfig(2, "8G", "20G", "20.04", "v500", cloudInitPath)
 	fmt.Println(err)
 	if !vmCfg.Exist() {
 		vmCfg.Create()

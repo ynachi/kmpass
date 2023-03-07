@@ -18,7 +18,7 @@ const MinDisk = "1G"
 // Instance represents a multipass VM, typically created using the launch subcommand.
 // Try multipass launch --help for more info.
 type Instance struct {
-	Cores string
+	Cores int
 	// Memory in bytes. Could be prefixed with K, M or G.
 	// Should be more than min memory
 	Memory string
@@ -36,17 +36,13 @@ type Instance struct {
 
 // NewInstanceConfig returns a valid configuration of an instance or an error
 // cloudinit is the path of a cloud init script to pass to the method
-func NewInstanceConfig(cores string, memory string, disk string, image string, name string, cloudinit string) (*Instance, error) {
+func NewInstanceConfig(cores int, memory string, disk string, image string, name string, cloudinit string) (*Instance, error) {
 	vmconfig := new(Instance)
 	if !validateMemoryFormat(memory) {
 		return vmconfig, ErrMemFormat
 	}
 	if !validateMemoryFormat(disk) {
 		return vmconfig, ErrMemFormat
-	}
-	_, err := strconv.Atoi(cores)
-	if err != nil {
-		return vmconfig, ErrInvalidCoreFmt
 	}
 	vmconfig = &Instance{
 		Cores:         cores,
@@ -65,7 +61,8 @@ func (vm *Instance) Create() error {
 	if vm == nil {
 		return errors.New("cannot create vm from nil config")
 	}
-	cmdConfig := []string{"launch", vm.Image, "-n", vm.Name, "-d", vm.Disk, "-c", vm.Cores, "-m", vm.Memory, "--timeout", "600"}
+	vmCores := strconv.Itoa(vm.Cores)
+	cmdConfig := []string{"launch", vm.Image, "-n", vm.Name, "-d", vm.Disk, "-c", vmCores, "-m", vm.Memory, "--timeout", "600"}
 	if vm.CloudInitFile != "" {
 		cmdConfig = append(cmdConfig, "--cloud-init", vm.CloudInitFile)
 	}
