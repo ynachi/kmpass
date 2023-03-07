@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -33,6 +34,8 @@ type Cluster struct {
 	LBNodeMemory      string
 	LBNodeCore        int
 	LBNodeDiskSize    string
+	// OS image
+	Image string
 }
 
 // validateConfig checks if cluster configuration is valid.
@@ -87,4 +90,13 @@ func (cluster *Cluster) generateConfigFromTemplate(templatePath string, outFileN
 		return filePath, ErrParseTemplate
 	}
 	return filePath, nil
+}
+
+// CreateLB creates the LB associated with the cluster and run it. After running this method, you'll have a LB deployed
+// and ready to server traffic.
+func (cluster *Cluster) CreateLB(cloudInitPath string) error {
+	lbName := fmt.Sprintf("%s-lb01", cluster.Name)
+	lbVM, err := NewInstanceConfig(cluster.LBNodeCore, cluster.LBNodeMemory, cluster.LBNodeDiskSize, cluster.Image, lbName, cloudInitPath)
+	fmt.Println(lbVM)
+
 }

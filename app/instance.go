@@ -122,11 +122,6 @@ func (vm *Instance) Transfer(src string, dst string) error {
 	return nil
 }
 
-// CmdType the type of command we run with instance.RunCmd() method.
-// Type 1 is run inside the VM like apt-get install. The other one
-// ia run outside the VM, typically to get some info, multipass vm info.
-type CmdType string
-
 // RunCmd run commands in a VM. It leverages multipass exec command. Returns the combined output (stderr + stdout) of
 // the command and an error.
 func (vm *Instance) RunCmd(args []string) (string, error) {
@@ -141,7 +136,7 @@ func (vm *Instance) RunCmd(args []string) (string, error) {
 
 // state returns the state of a VM: Running, Stopped, NotExist
 // This method should not be run on a nil instance of vm. But if it is done, it will not return an error (we do not
-// want this method to error. But a warning log will be fired in that case.
+// want this method to error). But a warning log will be fired in that case.
 func (vm *Instance) state() string {
 	if vm == nil {
 		Logger.Warn("cannot get the state of a nil VM", "name", vm.Name)
