@@ -110,8 +110,7 @@ func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) error 
 		return err
 	}
 	if !lbVM.Exist() {
-		err = lbVM.Create()
-		if err != nil {
+		if err := lbVM.Create(); err != nil {
 			Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
 			return err
 		}
@@ -121,23 +120,19 @@ func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) error 
 		return ErrVMAlreadyExist
 	}
 	// install lb softwares and transfert lb configuration file
-	_, err = lbVM.RunCmd([]string{"sudo", "apt-get", "install", "haproxy", "-y"})
-	if err != nil {
+	if _, err := lbVM.RunCmd([]string{"sudo", "apt-get", "install", "haproxy", "-y"}); err != nil {
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
 		return err
 	}
-	err = lbVM.Transfer(lbConfPath, "haproxy.cfg")
-	if err != nil {
+	if err := lbVM.Transfer(lbConfPath, "haproxy.cfg"); err != nil {
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
 		return err
 	}
-	_, err = lbVM.RunCmd([]string{"sudo", "cp", "/tmp/haproxy.cfg", "/etc/haproxy/haproxy.cfg"})
-	if err != nil {
+	if _, err := lbVM.RunCmd([]string{"sudo", "cp", "/tmp/haproxy.cfg", "/etc/haproxy/haproxy.cfg"}); err != nil {
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
 		return err
 	}
-	_, err = lbVM.RunCmd([]string{"sudo", "systemctl", "restart", "haproxy"})
-	if err != nil {
+	if _, err := lbVM.RunCmd([]string{"sudo", "systemctl", "restart", "haproxy"}); err != nil {
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
 		return err
 	}
