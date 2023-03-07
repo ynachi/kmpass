@@ -74,11 +74,19 @@ func validateIPs(ips ...string) bool {
 // configurations.
 func (cluster *Cluster) generateConfigFromTemplate(templatePath string, outFileName string) (string, error) {
 	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		Logger.Error("unable to read user home directory", err)
+		return "", ErrParseTemplate
+	}
 	parsedTpl, err := template.ParseFiles(templatePath)
+	if err != nil {
+		Logger.Error("unable to parse template", err)
+		return "", ErrParseTemplate
+	}
 	filePath := filepath.Join(homeDir, "kmpass", outFileName)
 	file, err := os.Create(filePath)
 	if err != nil {
-		Logger.Error("unable to parse template", err)
+		Logger.Error("unable to create file", err, "filename", filePath)
 		return filePath, ErrParseTemplate
 	}
 	if err != nil {
@@ -94,9 +102,44 @@ func (cluster *Cluster) generateConfigFromTemplate(templatePath string, outFileN
 
 // CreateLB creates the LB associated with the cluster and run it. After running this method, you'll have a LB deployed
 // and ready to server traffic.
-func (cluster *Cluster) CreateLB(cloudInitPath string) error {
+func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) error {
 	lbName := fmt.Sprintf("%s-lb01", cluster.Name)
 	lbVM, err := NewInstanceConfig(cluster.LBNodeCore, cluster.LBNodeMemory, cluster.LBNodeDiskSize, cluster.Image, lbName, cloudInitPath)
-	fmt.Println(lbVM)
-
+	if err != nil {
+		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
+		return err
+	}
+	if !lbVM.Exist() {
+		err = lbVM.Create()
+		if err != nil {
+			Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
+			return err
+		}
+	} else {
+		// @TODO: we should eventually start it but let's keep it this way for now
+		Logger.Warn("vm already exist, doing nothing", "instance-name", lbName)
+	}
+	// install lb softwares and transfert lb configuration file
+	_, err = lbVM.RunCmd([]string{"sudo", "apt-get", "install", "haproxy", "-y"})
+	if err != nil {
+		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
+		return err
+	}
+	err = lbVM.Transfer(lbConfPath, "haproxy.cfg")
+	if err != nil {
+		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
+		return err
+	}
+	_, err = lbVM.RunCmd([]string{"sudo", "cp", "/tmp/haproxy.cfg", "/etc/haproxy/haproxy.cfg"})
+	if err != nil {
+		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
+		return err
+	}
+	_, err = lbVM.RunCmd([]string{"sudo", "systemctl", "restart", "haproxy"})
+	if err != nil {
+		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
+		return err
+	}
+	Logger.Info("instance created and started with success", "instance-name", lbName)
+	return nil
 }

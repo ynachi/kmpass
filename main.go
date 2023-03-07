@@ -18,21 +18,15 @@ func main() {
 		PodSubnet:         "10.200.0.0/16",
 		CmpNodesIPs:       []string{"10.10.10.11", "10.10.10.12", "10.10.10.13"},
 		CtrlNodesIPs:      []string{"10.10.10.1", "10.10.10.2", "10.10.10.3"},
+		LBNodeMemory:      "4G",
+		Image:             "20.04",
+		LBNodeCore:        2,
+		LBNodeDiskSize:    "20G",
 	}
-	lbConfPath, kubeadmConfPath, cloudInitPath, err := app.GenerateClusterConfigs(cluster)
+	lbConfPath, _, cloudInitPath, err := app.GenerateClusterConfigs(cluster)
 	if err != nil {
 		app.Logger.Error("cannot get home dir", err)
 	}
-	vmCfg, err := app.NewInstanceConfig(2, "8G", "20G", "20.04", "v500", cloudInitPath)
-	fmt.Println(err)
-	if !vmCfg.Exist() {
-		vmCfg.Create()
-	} else {
-		fmt.Println("VM already exist, doing nothing")
-	}
-	vmCfg.Transfer(lbConfPath, "haproxy.cfg")
-	vmCfg.Transfer(kubeadmConfPath, "cluster.yaml")
-	out, err := vmCfg.RunCmd([]string{"sudo", "apt-get", "install", "haproxy", "-y"})
-	fmt.Println(out)
+	err = cluster.CreateLB(cloudInitPath, lbConfPath)
 	fmt.Println(err)
 }
