@@ -20,4 +20,5 @@ var (
 	ErrInvalidCoreFmt     = errors.New("invalid number of core, integer required")
 	ErrVMNotExist         = errors.New("vm does not exist")
 	ErrVMNotRunning       = errors.New("VM is not running")
+	ErrVMAlreadyExist     = errors.New("VM already exist")
 )

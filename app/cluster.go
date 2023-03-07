@@ -118,6 +118,7 @@ func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) error 
 	} else {
 		// @TODO: we should eventually start it but let's keep it this way for now
 		Logger.Warn("vm already exist, doing nothing", "instance-name", lbName)
+		return ErrVMAlreadyExist
 	}
 	// install lb softwares and transfert lb configuration file
 	_, err = lbVM.RunCmd([]string{"sudo", "apt-get", "install", "haproxy", "-y"})
