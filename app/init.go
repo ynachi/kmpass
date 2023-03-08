@@ -6,8 +6,19 @@ import (
 	"os/exec"
 )
 
+type LogLevel int
+
+const (
+	Info LogLevel = iota
+	Warn
+	Error
+	Debug
+)
+
 // Logger Application wide logger
-var Logger = slog.New(slog.NewJSONHandler(os.Stdout))
+var programLevel = new(slog.LevelVar) // Info by default
+var h = slog.HandlerOptions{Level: programLevel}.NewJSONHandler(os.Stdout)
+var Logger = slog.New(h)
 
 // init logger
 func init() {
@@ -20,3 +31,18 @@ func init() {
 		os.Exit(1)
 	}
 }
+
+// SetLogLevel sets the application log level dynamically. Defaut level in info.
+func SetLogLevel(level LogLevel) {
+	switch level {
+	case Info:
+		programLevel.Set(slog.LevelInfo)
+	case Warn:
+		programLevel.Set(slog.LevelWarn)
+	case Error:
+		programLevel.Set(slog.LevelError)
+	case Debug:
+		programLevel.Set(slog.LevelDebug)
+	}
+}
+

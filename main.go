@@ -12,6 +12,7 @@ func main() {
 	//	fmt.Println("Failed to create VM")
 	//}
 	//vm.Create()
+	app.SetLogLevel(app.Error)
 	cluster := &app.Cluster{
 		Name:              "cluster100",
 		PublicAPIEndpoint: "172.10.25.2",
