@@ -5,6 +5,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"text/template"
 )
 
@@ -20,16 +22,19 @@ type Cluster struct {
 	Name              string
 	PublicAPIEndpoint string
 	PodSubnet         string
-	// List of IPs for the compute node. Minimum 1.
+	// List of IPs for the compute node. Minimum 1. They are updated by vm create command. The reason is that at this time,
+	// multipass does not support setting VM IP address at creation time. So it has to be retrived after VM creation time
+	// and the cluster info needs to be updated.
 	CmpNodesIPs      []string
 	CmpNodesMemory   string
 	CmpNodesCores    int
-	NodesDiskSize    string
+	CmpNodeNumber    int
 	CmpNodesDiskSize string
 	// List of IPs for the control node. Minimum 3.
 	CtrlNodesIPs      []string
 	CtrlNodesMemory   string
 	CtrlNodesCores    int
+	CtrlNodesNumber   int
 	CtrlNodesDiskSize string
 	LBNodeMemory      string
 	LBNodeCore        int
@@ -101,41 +106,112 @@ func (cluster *Cluster) generateConfigFromTemplate(templatePath string, outFileN
 }
 
 // CreateLB creates the LB associated with the cluster and run it. After running this method, you'll have a LB deployed
-// and ready to server traffic.
-func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) error {
+// and ready to server traffic. Returns a pointer to an instance of VM and an error. If the VM already exist, an error
+// will be thrown but the VM instance that will be returned will be valid.
+func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) (*Instance, error) {
 	lbName := fmt.Sprintf("%s-lb01", cluster.Name)
 	lbVM, err := NewInstanceConfig(cluster.LBNodeCore, cluster.LBNodeMemory, cluster.LBNodeDiskSize, cluster.Image, lbName, cloudInitPath)
 	if err != nil {
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
-		return err
+		return lbVM, err
 	}
 	if !lbVM.Exist() {
 		if err := lbVM.Create(); err != nil {
 			Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
-			return err
+			return lbVM, err
 		}
 	} else {
 		// @TODO: we should eventually start it but let's keep it this way for now
 		Logger.Warn("vm already exist, doing nothing", "instance-name", lbName)
-		return ErrVMAlreadyExist
+		return lbVM, ErrVMAlreadyExist
 	}
-	// install lb softwares and transfert lb configuration file
+	// install lb software packages and transfer lb configuration file
 	if _, err := lbVM.RunCmd([]string{"sudo", "apt-get", "install", "haproxy", "-y"}); err != nil {
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
-		return err
+		return lbVM, err
 	}
 	if err := lbVM.Transfer(lbConfPath, "haproxy.cfg"); err != nil {
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
-		return err
+		return lbVM, err
 	}
 	if _, err := lbVM.RunCmd([]string{"sudo", "cp", "/tmp/haproxy.cfg", "/etc/haproxy/haproxy.cfg"}); err != nil {
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
-		return err
+		return lbVM, err
 	}
 	if _, err := lbVM.RunCmd([]string{"sudo", "systemctl", "restart", "haproxy"}); err != nil {
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
-		return err
+		return lbVM, err
 	}
 	Logger.Info("instance created and started with success", "instance-name", lbName)
-	return nil
+	return lbVM, nil
+}
+
+// CreateKubeVMs creates a VM for the kubernetes cluster. parallel param is the number of vms to create in parallel.
+// This method use the worker concurrency pattern to create and run VMs. Creating a high number of VMs will incur
+// network traffic and hypervisor cpu load, so the number of workers should be planned wisely.
+func (cluster *Cluster) CreateKubeVMs(cloudInitPath string, numWorkers int) {
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(numWorkers)
+	// number of VMs in this cluster, except the LB
+	numVms := cluster.CtrlNodesNumber + cluster.CmpNodeNumber
+	vms := make(chan *Instance, numVms)
+
+	// create the workers to bootstrap the VMs
+	for i := 0; i < numVms; i++ {
+		go func() {
+			defer waitGroup.Done()
+			for vm := range vms {
+				vm.Create()
+				IP, err := vm.GetIP()
+				if err != nil {
+					Logger.Error("unable to retrieve vm IP address", err, "instance-name", vm.Name)
+					return
+				}
+				if strings.Contains(vm.Name, "ctrl") {
+					cluster.CtrlNodesIPs = append(cluster.CtrlNodesIPs, IP)
+				} else {
+					cluster.CmpNodesIPs = append(cluster.CmpNodesIPs, IP)
+				}
+			}
+		}()
+	}
+
+	// fill the vms jobs queue with control nodes
+	for i := 0; i < cluster.CtrlNodesNumber; i++ {
+		vmName := fmt.Sprintf("%s-ctrl-%d", cluster.Name, i)
+		vmCfg, err := NewInstanceConfig(cluster.CtrlNodesCores, cluster.CtrlNodesMemory,
+			cluster.CtrlNodesDiskSize, cluster.Image, vmName, cloudInitPath)
+		if err != nil {
+			Logger.Error("unable to create control vm instance config", err, "instance-name", vmName)
+		}
+		if !vmCfg.Exist() {
+			if err := vmCfg.Create(); err != nil {
+				Logger.Error("unable to create control vm instance config", err, "instance-name", vmName)
+			}
+		} else {
+			// @TODO: we should eventually start it but let's keep it this way for now
+			Logger.Warn("vm already exist, doing nothing", "instance-name", vmName)
+		}
+		vms <- vmCfg
+	}
+	// fill the vms jobs queue with compute nodes
+	for i := 0; i < cluster.CmpNodeNumber; i++ {
+		vmName := fmt.Sprintf("%s-cmp-%d", cluster.Name, i)
+		vmCfg, err := NewInstanceConfig(cluster.CmpNodesCores, cluster.CmpNodesMemory,
+			cluster.CmpNodesDiskSize, cluster.Image, vmName, cloudInitPath)
+		if err != nil {
+			Logger.Error("unable to create compute vm instance config", err, "instance-name", vmName)
+		}
+		if !vmCfg.Exist() {
+			if err := vmCfg.Create(); err != nil {
+				Logger.Error("unable to create LB vm instance", err, "instance-name", vmName)
+			}
+		} else {
+			// @TODO: we should eventually start it but let's keep it this way for now
+			Logger.Warn("vm already exist, doing nothing", "instance-name", vmName)
+		}
+		vms <- vmCfg
+	}
+	close(vms)
+	waitGroup.Wait()
 }
