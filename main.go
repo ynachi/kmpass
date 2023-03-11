@@ -12,7 +12,7 @@ func main() {
 	//	fmt.Println("Failed to create VM")
 	//}
 	//vm.Create()
-	app.SetLogLevel(app.Error)
+	//app.SetLogLevel(app.Error)
 	cluster := &app.Cluster{
 		Name:              "cluster100",
 		PublicAPIEndpoint: "172.10.25.2",
@@ -24,10 +24,17 @@ func main() {
 		LBNodeCore:        2,
 		LBNodeDiskSize:    "20G",
 	}
-	lbConfPath, _, cloudInitPath, err := app.GenerateClusterConfigs(cluster)
+	cloudInitPath, err := app.GenerateConfigCloudInit(cluster)
 	if err != nil {
 		app.Logger.Error("cannot get home dir", err)
 	}
-	err = cluster.CreateLB(cloudInitPath, lbConfPath)
+	lbConfPath, err := app.GenerateConfigLB(cluster)
+	if err != nil {
+		app.Logger.Error("cannot get home dir", err)
+	}
+	vm, err := cluster.CreateLB(cloudInitPath, lbConfPath)
 	fmt.Println(err)
+	IP, _ := vm.GetIP()
+	fmt.Println(IP)
+
 }

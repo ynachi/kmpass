@@ -151,6 +151,20 @@ func (vm *Instance) state() string {
 	return strings.Fields(string(out))[3]
 }
 
+// GetIP gets the IP address of an instance
+func (vm *Instance) GetIP() (string, error) {
+	if !vm.IsRunning() {
+		return "", ErrVMNotRunning
+	}
+	args := []string{"info", vm.Name}
+	cmd := exec.Command("multipass", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", errors.New("unexpected exception")
+	}
+	return strings.Fields(string(out))[5], nil
+}
+
 // IsRunning checks whether a VM is running
 func (vm *Instance) IsRunning() bool {
 	return vm.state() == "Running"
