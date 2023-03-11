@@ -47,25 +47,40 @@ func (config BootstrapConfig) updateCloudinit() (string, error) {
 	return outFilePath, nil
 }
 
-// GenerateClusterConfigs generates configuration files used to bootstrap the cluster. These configuration files
-// include the lb conf, the kubeadm bootstrap yaml file and the nodes cloudinit.
-// returns LBConfPath, kubeadmInitConfPath
-func GenerateClusterConfigs(cluster *Cluster) (string, string, string, error) {
+// GenerateConfigLB generates configuration files used to bootstrap the cluster load balancer.
+func GenerateConfigLB(cluster *Cluster) (string, error) {
 	lbConfPath, err := cluster.generateConfigFromTemplate("app/files/haproxy.cfg.tpl", "haproxy.cfg")
 	if err != nil {
 		Logger.Error("unable to generate lb config file", err, "cluster", cluster.Name)
+		return "", err
 	}
+	return lbConfPath, nil
+}
+
+// GenerateConfigKubeadm generates configuration files used to bootstrap the using KubeAdmin.
+func GenerateConfigKubeadm(cluster *Cluster) (string, error) {
 	kubeadmInitConfPath, err := cluster.generateConfigFromTemplate("app/files/cluster.yaml.tpl", "cluster.yaml")
 	if err != nil {
 		Logger.Error("unable to generate kubeadm config file", err, "cluster", cluster.Name)
+		return "", err
 	}
+	return kubeadmInitConfPath, nil
+}
+
+// GenerateConfigCloudInit generates configuration files used to bootstrap the kubernetes nodes.
+// This cloud init file is used to prepare the nodes for k8s.
+func GenerateConfigCloudInit(cluster *Cluster) (string, error) {
 	bootstrapConfig := BootstrapConfig{}
 	encodedBootstrapScript, err := EncodeFileB64("app/files/install.sh")
 	if err != nil {
 		Logger.Error("unable to encode file", err, "filename", "install.sh")
-		return "", "", "", ErrBase64Encode
+		return "", ErrBase64Encode
 	}
 	bootstrapConfig.NodeBootstrapScript = encodedBootstrapScript
 	cloudInitPath, err := bootstrapConfig.updateCloudinit()
-	return lbConfPath, kubeadmInitConfPath, cloudInitPath, err
+	if err != nil {
+		Logger.Error("unable to encode file", err, "filename", "install.sh")
+		return "", ErrCloudInitGeneration
+	}
+	return cloudInitPath, nil
 }
