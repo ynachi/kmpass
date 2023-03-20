@@ -23,7 +23,7 @@ type Cluster struct {
 	PublicAPIEndpoint string
 	PodSubnet         string
 	// List of IPs for the compute node. Minimum 1. They are updated by vm create command. The reason is that at this time,
-	// multipass does not support setting VM IP address at creation time. So it has to be retrived after VM creation time
+	// multipass does not support setting VM IP address at creation time. So it has to be retrieved after VM creation time
 	// and the cluster info needs to be updated.
 	CmpNodesIPs      []string
 	CmpNodesMemory   string
@@ -143,6 +143,13 @@ func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) (*Inst
 		return lbVM, err
 	}
 	Logger.Info("instance created and started with success", "instance-name", lbName)
+	IP, err := lbVM.GetIP()
+	fmt.Println(IP)
+	if err != nil {
+		Logger.Error("unable to retrieve vm IP address", err, "instance-name", lbName)
+		return lbVM, err
+	}
+	cluster.PublicAPIEndpoint = IP
 	return lbVM, nil
 }
 

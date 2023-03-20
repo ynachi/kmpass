@@ -73,7 +73,7 @@ func GenerateConfigCloudInit(cluster *Cluster) (string, error) {
 	bootstrapConfig := BootstrapConfig{}
 	encodedBootstrapScript, err := EncodeFileB64("app/files/install.sh")
 	if err != nil {
-		Logger.Error("unable to encode file", err, "filename", "install.sh")
+		Logger.Error("unable to encode file", err, "filename", "install.sh", "cluster", cluster.Name)
 		return "", ErrBase64Encode
 	}
 	bootstrapConfig.NodeBootstrapScript = encodedBootstrapScript
