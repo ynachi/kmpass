@@ -157,19 +157,24 @@ func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) (*Inst
 func worker(cluster *Cluster, ch <-chan *Instance, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for vm := range ch {
-		if err := vm.Create(); err != nil {
-			Logger.Error("unable to create VM", err, "instance-name", vm.Name)
-			return
-		}
-		IP, err := vm.GetIP()
-		if err != nil {
-			Logger.Error("unable to retrieve vm IP address", err, "instance-name", vm.Name)
-			return
-		}
-		if strings.Contains(vm.Name, "ctrl") {
-			cluster.CtrlNodesIPs = append(cluster.CtrlNodesIPs, IP)
+		if !vm.Exist() {
+			if err := vm.Create(); err != nil {
+				Logger.Error("unable to create VM", err, "instance-name", vm.Name)
+				return
+			}
+			IP, err := vm.GetIP()
+			if err != nil {
+				Logger.Error("unable to retrieve vm IP address", err, "instance-name", vm.Name)
+				return
+			}
+			if strings.Contains(vm.Name, "ctrl") {
+				cluster.CtrlNodesIPs = append(cluster.CtrlNodesIPs, IP)
+			} else {
+				cluster.CmpNodesIPs = append(cluster.CmpNodesIPs, IP)
+			}
 		} else {
-			cluster.CmpNodesIPs = append(cluster.CmpNodesIPs, IP)
+			// @TODO: we should eventually start it but let's keep it this way for now
+			Logger.Warn("vm already exist, doing nothing", "instance-name", vm.Name)
 		}
 	}
 }
@@ -195,14 +200,6 @@ func (cluster *Cluster) CreateKubeVMs(cloudInitPath string, numWorkers int) {
 		if err != nil {
 			Logger.Error("unable to create control vm instance config", err, "instance-name", vmName)
 		}
-		if !vmCfg.Exist() {
-			if err := vmCfg.Create(); err != nil {
-				Logger.Error("unable to create control vm instance config", err, "instance-name", vmName)
-			}
-		} else {
-			// @TODO: we should eventually start it but let's keep it this way for now
-			Logger.Warn("vm already exist, doing nothing", "instance-name", vmName)
-		}
 		vms <- vmCfg
 	}
 	// fill the vms jobs queue with compute nodes
@@ -212,14 +209,6 @@ func (cluster *Cluster) CreateKubeVMs(cloudInitPath string, numWorkers int) {
 			cluster.CmpNodesDiskSize, cluster.Image, vmName, cloudInitPath)
 		if err != nil {
 			Logger.Error("unable to create compute vm instance config", err, "instance-name", vmName)
-		}
-		if !vmCfg.Exist() {
-			if err := vmCfg.Create(); err != nil {
-				Logger.Error("unable to create LB vm instance", err, "instance-name", vmName)
-			}
-		} else {
-			// @TODO: we should eventually start it but let's keep it this way for now
-			Logger.Warn("vm already exist, doing nothing", "instance-name", vmName)
 		}
 		vms <- vmCfg
 	}
