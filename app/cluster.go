@@ -153,34 +153,38 @@ func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) (*Inst
 	return lbVM, nil
 }
 
+// worker is a helper to create VMs concurrently
+func worker(cluster *Cluster, ch <-chan *Instance, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for vm := range ch {
+		if err := vm.Create(); err != nil {
+			Logger.Error("unable to create VM", err, "instance-name", vm.Name)
+			return
+		}
+		IP, err := vm.GetIP()
+		if err != nil {
+			Logger.Error("unable to retrieve vm IP address", err, "instance-name", vm.Name)
+			return
+		}
+		if strings.Contains(vm.Name, "ctrl") {
+			cluster.CtrlNodesIPs = append(cluster.CtrlNodesIPs, IP)
+		} else {
+			cluster.CmpNodesIPs = append(cluster.CmpNodesIPs, IP)
+		}
+	}
+}
+
 // CreateKubeVMs creates a VM for the kubernetes cluster. parallel param is the number of vms to create in parallel.
 // This method use the worker concurrency pattern to create and run VMs. Creating a high number of VMs will incur
 // network traffic and hypervisor cpu load, so the number of workers should be planned wisely.
 func (cluster *Cluster) CreateKubeVMs(cloudInitPath string, numWorkers int) {
-	var waitGroup sync.WaitGroup
-	waitGroup.Add(numWorkers)
-	// number of VMs in this cluster, except the LB
-	numVms := cluster.CtrlNodesNumber + cluster.CmpNodeNumber
-	vms := make(chan *Instance, numVms)
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
+	vms := make(chan *Instance, numWorkers)
 
 	// create the workers to bootstrap the VMs
-	for i := 0; i < numVms; i++ {
-		go func() {
-			defer waitGroup.Done()
-			for vm := range vms {
-				vm.Create()
-				IP, err := vm.GetIP()
-				if err != nil {
-					Logger.Error("unable to retrieve vm IP address", err, "instance-name", vm.Name)
-					return
-				}
-				if strings.Contains(vm.Name, "ctrl") {
-					cluster.CtrlNodesIPs = append(cluster.CtrlNodesIPs, IP)
-				} else {
-					cluster.CmpNodesIPs = append(cluster.CmpNodesIPs, IP)
-				}
-			}
-		}()
+	for i := 0; i < numWorkers; i++ {
+		go worker(cluster, vms, &wg)
 	}
 
 	// fill the vms jobs queue with control nodes
@@ -220,5 +224,5 @@ func (cluster *Cluster) CreateKubeVMs(cloudInitPath string, numWorkers int) {
 		vms <- vmCfg
 	}
 	close(vms)
-	waitGroup.Wait()
+	wg.Wait()
 }
