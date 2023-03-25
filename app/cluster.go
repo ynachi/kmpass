@@ -25,13 +25,13 @@ type Cluster struct {
 	// List of IPs for the compute node. Minimum 1. They are updated by vm create command. The reason is that at this time,
 	// multipass does not support setting VM IP address at creation time. So it has to be retrieved after VM creation time
 	// and the cluster info needs to be updated.
-	CmpNodesIPs      []string
+	cmpNodesIPs      []string
 	CmpNodesMemory   string
 	CmpNodesCores    int
 	CmpNodeNumber    int
 	CmpNodesDiskSize string
 	// List of IPs for the control node. Minimum 3.
-	CtrlNodesIPs      []string
+	ctrlNodesIPs      []string
 	CtrlNodesMemory   string
 	CtrlNodesCores    int
 	CtrlNodesNumber   int
@@ -57,10 +57,10 @@ func (cluster *Cluster) validateConfig() error {
 	if !validateIPs(cluster.PublicAPIEndpoint) {
 		return ErrInvalidIPV4Address
 	}
-	if !validateIPs(cluster.CtrlNodesIPs...) {
+	if !validateIPs(cluster.ctrlNodesIPs...) {
 		return ErrInvalidIPV4Address
 	}
-	if !validateIPs(cluster.CmpNodesIPs...) {
+	if !validateIPs(cluster.cmpNodesIPs...) {
 		return ErrInvalidIPV4Address
 	}
 	return nil
@@ -99,7 +99,7 @@ func (cluster *Cluster) generateConfigFromTemplate(templatePath string, outFileN
 		Logger.Error("unable to create temp file", err)
 		return filePath, ErrCreateFile
 	}
-	if err := parsedTpl.Execute(file, *cluster); err != nil {
+	if err := parsedTpl.Execute(file, cluster); err != nil {
 		Logger.Error("unable to parse template", err)
 		return filePath, ErrParseTemplate
 	}
@@ -169,13 +169,9 @@ func worker(cluster *Cluster, ch <-chan *Instance, wg *sync.WaitGroup) {
 				return
 			}
 			if strings.Contains(vm.Name, "ctrl") {
-				cluster.Mux.Lock()
-				cluster.CtrlNodesIPs = append(cluster.CtrlNodesIPs, IP)
-				cluster.Mux.Unlock()
+				cluster.AddControlIP(IP)
 			} else {
-				cluster.Mux.Lock()
-				cluster.CmpNodesIPs = append(cluster.CmpNodesIPs, IP)
-				cluster.Mux.Unlock()
+				cluster.AddComputeIP(IP)
 			}
 		} else {
 			// @TODO: we should eventually start it but let's keep it this way for now
@@ -219,4 +215,36 @@ func (cluster *Cluster) CreateKubeVMs(cloudInitPath string, numWorkers int) {
 	}
 	close(vms)
 	wg.Wait()
+}
+
+// containsIP checks if the slice of IP contains the given IP
+func containsIP(IPs []string, IP string) bool {
+	for _, v := range IPs {
+		if v == IP {
+			return true
+		}
+	}
+	return false
+}
+
+// AddComputeIP add the IP address of a newly created compute machine to compute nodes IP list.
+// This is because multipass does not allow to set static IP on a node. So we have to fetch them
+// dynamically and update the cluster configurations.
+func (cluster *Cluster) AddComputeIP(IP string) {
+	if !containsIP(cluster.cmpNodesIPs, IP) {
+		cluster.Mux.Lock()
+		cluster.cmpNodesIPs = append(cluster.cmpNodesIPs, IP)
+		cluster.Mux.Unlock()
+	}
+}
+
+// AddControlIP add the IP address of a newly created control machine to control nodes IP list.
+// This is because multipass does not allow to set static IP on a node. So we have to fetch them
+// dynamically and update the cluster configurations.
+func (cluster *Cluster) AddControlIP(IP string) {
+	if !containsIP(cluster.ctrlNodesIPs, IP) {
+		cluster.Mux.Lock()
+		cluster.ctrlNodesIPs = append(cluster.ctrlNodesIPs, IP)
+		cluster.Mux.Unlock()
+	}
 }
