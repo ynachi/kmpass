@@ -41,6 +41,7 @@ type Cluster struct {
 	LBNodeDiskSize    string
 	// OS image
 	Image string
+	Mux   sync.Mutex
 }
 
 // validateConfig checks if cluster configuration is valid.
@@ -168,9 +169,13 @@ func worker(cluster *Cluster, ch <-chan *Instance, wg *sync.WaitGroup) {
 				return
 			}
 			if strings.Contains(vm.Name, "ctrl") {
+				cluster.Mux.Lock()
 				cluster.CtrlNodesIPs = append(cluster.CtrlNodesIPs, IP)
+				cluster.Mux.Unlock()
 			} else {
+				cluster.Mux.Lock()
 				cluster.CmpNodesIPs = append(cluster.CmpNodesIPs, IP)
+				cluster.Mux.Unlock()
 			}
 		} else {
 			// @TODO: we should eventually start it but let's keep it this way for now
