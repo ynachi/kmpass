@@ -48,7 +48,7 @@ frontend stats
 listen kube-api-6443
   bind *:6443
   mode tcp
-  {{- range $i, $ip := .ctrlNodesIPs}}
+  {{- range $i, $ip := .CtrlNodesIPs}}
   server ctrl{{$i }} {{$ip -}}:6443 check inter 1s backup
   {{- end}}
 

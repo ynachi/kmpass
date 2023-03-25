@@ -40,8 +40,9 @@ type Cluster struct {
 	LBNodeCore        int
 	LBNodeDiskSize    string
 	// OS image
-	Image string
-	Mux   sync.Mutex
+	Image          string
+	Mux            sync.Mutex
+	BootstrapToken string
 }
 
 // validateConfig checks if cluster configuration is valid.
@@ -53,15 +54,6 @@ func (cluster *Cluster) validateConfig() error {
 	}
 	if !(validateMemoryFormat(cluster.LBNodeDiskSize) && validateMemoryFormat(cluster.CtrlNodesDiskSize) && validateMemoryFormat(cluster.CmpNodesDiskSize)) {
 		return ErrMemFormat
-	}
-	if !validateIPs(cluster.PublicAPIEndpoint) {
-		return ErrInvalidIPV4Address
-	}
-	if !validateIPs(cluster.CtrlNodesIPs...) {
-		return ErrInvalidIPV4Address
-	}
-	if !validateIPs(cluster.CmpNodesIPs...) {
-		return ErrInvalidIPV4Address
 	}
 	return nil
 }
@@ -124,6 +116,12 @@ func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) (*Inst
 	} else {
 		// @TODO: we should eventually start it but let's keep it this way for now
 		Logger.Warn("vm already exist, doing nothing", "instance-name", lbName)
+		IP, err := lbVM.GetIP()
+		if err != nil {
+			Logger.Error("unable to retrieve vm IP address", err, "instance-name", lbName)
+			return lbVM, err
+		}
+		cluster.PublicAPIEndpoint = IP
 		return lbVM, ErrVMAlreadyExist
 	}
 	// install lb software packages and transfer lb configuration file
@@ -145,7 +143,6 @@ func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) (*Inst
 	}
 	Logger.Info("instance created and started with success", "instance-name", lbName)
 	IP, err := lbVM.GetIP()
-	fmt.Println(IP)
 	if err != nil {
 		Logger.Error("unable to retrieve vm IP address", err, "instance-name", lbName)
 		return lbVM, err
