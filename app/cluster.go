@@ -25,13 +25,13 @@ type Cluster struct {
 	// List of IPs for the compute node. Minimum 1. They are updated by vm create command. The reason is that at this time,
 	// multipass does not support setting VM IP address at creation time. So it has to be retrieved after VM creation time
 	// and the cluster info needs to be updated.
-	cmpNodesIPs      []string
+	CmpNodesIPs      []string
 	CmpNodesMemory   string
 	CmpNodesCores    int
 	CmpNodeNumber    int
 	CmpNodesDiskSize string
 	// List of IPs for the control node. Minimum 3.
-	ctrlNodesIPs      []string
+	CtrlNodesIPs      []string
 	CtrlNodesMemory   string
 	CtrlNodesCores    int
 	CtrlNodesNumber   int
@@ -57,10 +57,10 @@ func (cluster *Cluster) validateConfig() error {
 	if !validateIPs(cluster.PublicAPIEndpoint) {
 		return ErrInvalidIPV4Address
 	}
-	if !validateIPs(cluster.ctrlNodesIPs...) {
+	if !validateIPs(cluster.CtrlNodesIPs...) {
 		return ErrInvalidIPV4Address
 	}
-	if !validateIPs(cluster.cmpNodesIPs...) {
+	if !validateIPs(cluster.CmpNodesIPs...) {
 		return ErrInvalidIPV4Address
 	}
 	return nil
@@ -163,19 +163,19 @@ func worker(cluster *Cluster, ch <-chan *Instance, wg *sync.WaitGroup) {
 				Logger.Error("unable to create VM", err, "instance-name", vm.Name)
 				return
 			}
-			IP, err := vm.GetIP()
-			if err != nil {
-				Logger.Error("unable to retrieve vm IP address", err, "instance-name", vm.Name)
-				return
-			}
-			if strings.Contains(vm.Name, "ctrl") {
-				cluster.AddControlIP(IP)
-			} else {
-				cluster.AddComputeIP(IP)
-			}
 		} else {
 			// @TODO: we should eventually start it but let's keep it this way for now
-			Logger.Warn("vm already exist, doing nothing", "instance-name", vm.Name)
+			Logger.Warn("vm already exist, IPs will be updated if needed", "instance-name", vm.Name)
+		}
+		IP, err := vm.GetIP()
+		if err != nil {
+			Logger.Error("unable to retrieve vm IP address", err, "instance-name", vm.Name)
+			return
+		}
+		if strings.Contains(vm.Name, "ctrl") {
+			cluster.AddControlIP(IP)
+		} else {
+			cluster.AddComputeIP(IP)
 		}
 	}
 }
@@ -231,9 +231,9 @@ func containsIP(IPs []string, IP string) bool {
 // This is because multipass does not allow to set static IP on a node. So we have to fetch them
 // dynamically and update the cluster configurations.
 func (cluster *Cluster) AddComputeIP(IP string) {
-	if !containsIP(cluster.cmpNodesIPs, IP) {
+	if !containsIP(cluster.CmpNodesIPs, IP) {
 		cluster.Mux.Lock()
-		cluster.cmpNodesIPs = append(cluster.cmpNodesIPs, IP)
+		cluster.CmpNodesIPs = append(cluster.CmpNodesIPs, IP)
 		cluster.Mux.Unlock()
 	}
 }
@@ -242,9 +242,9 @@ func (cluster *Cluster) AddComputeIP(IP string) {
 // This is because multipass does not allow to set static IP on a node. So we have to fetch them
 // dynamically and update the cluster configurations.
 func (cluster *Cluster) AddControlIP(IP string) {
-	if !containsIP(cluster.ctrlNodesIPs, IP) {
+	if !containsIP(cluster.CtrlNodesIPs, IP) {
 		cluster.Mux.Lock()
-		cluster.ctrlNodesIPs = append(cluster.ctrlNodesIPs, IP)
+		cluster.CtrlNodesIPs = append(cluster.CtrlNodesIPs, IP)
 		cluster.Mux.Unlock()
 	}
 }
