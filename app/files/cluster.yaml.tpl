@@ -9,3 +9,11 @@ apiServer:
   certSANs:
     - {{.PublicAPIEndpoint}}
 clusterName: {{.Name}}
+
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: InitConfiguration
+bootstrapTokens:
+- token: {{.BootstrapToken}}
+description: "default kubeadm bootstrap token"
+ttl: "0"
