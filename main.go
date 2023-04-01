@@ -2,23 +2,20 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/ynachi/kmpass/app"
 )
 
 func main() {
-	//vm, err := app.NewInstanceConfig("2", "2G", "20G", "20.04", "yoa-bushit", "/home/ynachi/codes/github.com/kmpass2/app/files/clouds.yaml")
-	//if err != nil {
-	//	fmt.Println("Failed to create VM")
-	//}
-	//vm.Create()
 	//app.SetLogLevel(app.Error)
 
+	// 1. Create a cluster configuration
 	cluster := &app.Cluster{
 		Name:              "cluster100",
 		PodSubnet:         "10.200.0.0/16",
 		CtrlNodesNumber:   3,
-		CmpNodeNumber:     3,
+		CmpNodesNumber:    3,
 		CtrlNodesMemory:   "4G",
 		CmpNodesMemory:    "4G",
 		CmpNodesCores:     2,
@@ -30,7 +27,9 @@ func main() {
 		LBNodeCore:        2,
 		LBNodeDiskSize:    "20G",
 		BootstrapToken:    "5ff0en.1vg4kt1yhk3ty9t7",
+		KubernetesCertKey: "c91d799bfa03fa67107ce07ceb29e67419e5225d4757c93c31ef27bfe8366f0c",
 	}
+	// 2. generate cloud init file and get it's path
 	// @TODO, Check cluster configuration before using it
 	cloudInitPath, err := app.GenerateConfigCloudInit(cluster)
 	if err != nil {
@@ -38,13 +37,16 @@ func main() {
 	}
 	fmt.Println(cluster)
 	fmt.Println("------------------------------")
-	cluster.CreateKubeVMs(cloudInitPath, 5)
+	// 3. create vms, execpt LB
+	cluster.CreateKubeVMs(cloudInitPath, 1)
 	fmt.Println("------------------------------")
 	fmt.Println(cluster)
+	// 4. generate LB configs
 	lbConfPath, err := app.GenerateConfigLB(cluster)
 	if err != nil {
 		app.Logger.Error("cannot get home dir", err)
 	}
+	// 6. Create LB
 	vm, err := cluster.CreateLB(cloudInitPath, lbConfPath)
 	fmt.Println(err)
 	IP, _ := vm.GetIP()
@@ -53,5 +55,59 @@ func main() {
 	fmt.Println("------------------------------")
 	fmt.Println(cluster)
 	fmt.Println("Generate and use kubeadm config file")
-	app.GenerateConfigKubeadm(cluster)
+	// 7. genetrate kubeadm config
+	kubeadmInitConfPath, err := app.GenerateConfigKubeadm(cluster)
+	if err != nil {
+		os.Exit(1)
+	}
+	// 7. transfer kubeadm config file to ctrl-0
+	firstCtrlNode, err := cluster.GetControlVM(fmt.Sprintf("%s-ctrl-0", cluster.Name), cloudInitPath)
+	if err != nil {
+		os.Exit(1)
+	}
+	firstCtrlNode.Transfer(kubeadmInitConfPath, "/tmp/")
+	// 8. Run kubeadm init on ctrl-0
+	err = cluster.KubeInit("/home/ubuntu")
+	if err != nil {
+		fmt.Println("Kubeadm init failed")
+		os.Exit(1)
+	}
+	// 9. Install cni
+	err = cluster.InstallCNI()
+	if err != nil {
+		fmt.Println("unable to install cni")
+		os.Exit(1)
+	}
+	// 10. Join the other controllers
+	ctrlJoinCMD, err := cluster.GetMasterJoinCMD()
+	if err != nil {
+		fmt.Println("unable to generate control join cmd")
+		os.Exit(1)
+	}
+	for i := 1; i < cluster.CtrlNodesNumber; i++ {
+		_, err = app.RunCmd(fmt.Sprintf("%s-ctrl-%d", cluster.Name, i), ctrlJoinCMD)
+		if err != nil {
+			fmt.Println("unable to join ctrl node")
+			os.Exit(1)
+		}
+	}
+	// 10. Join the workers
+	workerJoinCMD, err := cluster.GetWorkerJoinCMD()
+	if err != nil {
+		fmt.Println("unable to generate worker join cmd")
+		os.Exit(1)
+	}
+	for i := 0; i < cluster.CmpNodesNumber; i++ {
+		_, err = app.RunCmd(fmt.Sprintf("%s-ctrl-%d", cluster.Name, i), workerJoinCMD)
+		if err != nil {
+			fmt.Println("unable to join worker node")
+			os.Exit(1)
+		}
+	}
+	hash, _ := cluster.GetCertHash()
+	fmt.Println()
+	fmt.Println(hash)
+	fmt.Println()
+	cmd, _ := cluster.GetMasterJoinCMD()
+	fmt.Println(cmd)
 }

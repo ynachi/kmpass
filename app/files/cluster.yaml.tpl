@@ -13,7 +13,9 @@ clusterName: {{.Name}}
 ---
 apiVersion: kubeadm.k8s.io/v1beta3
 kind: InitConfiguration
+certificateKey: {{.KubernetesCertKey}}
 bootstrapTokens:
 - token: {{.BootstrapToken}}
-description: "default kubeadm bootstrap token"
-ttl: "0"
+  description: "default kubeadm bootstrap token"
+  ttl: "24h"
+

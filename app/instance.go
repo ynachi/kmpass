@@ -121,11 +121,8 @@ func (vm *Instance) Transfer(src string, dst string) error {
 
 // RunCmd run commands in a VM. It leverages multipass exec command. Returns the combined output (stderr + stdout) of
 // the command and an error.
-func (vm *Instance) RunCmd(args []string) (string, error) {
-	if vm == nil {
-		return "", fmt.Errorf("cannot run command on nil VM")
-	}
-	args = append([]string{"exec", vm.Name, "--"}, args...)
+func RunCmd(vmName string, args []string) (string, error) {
+	args = append([]string{"exec", vmName, "--"}, args...)
 	cmd := exec.Command("multipass", args...)
 	output, err := cmd.CombinedOutput()
 	return string(output), err

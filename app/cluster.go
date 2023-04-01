@@ -28,7 +28,7 @@ type Cluster struct {
 	CmpNodesIPs      []string
 	CmpNodesMemory   string
 	CmpNodesCores    int
-	CmpNodeNumber    int
+	CmpNodesNumber   int
 	CmpNodesDiskSize string
 	// List of IPs for the control node. Minimum 3.
 	CtrlNodesIPs      []string
@@ -40,9 +40,10 @@ type Cluster struct {
 	LBNodeCore        int
 	LBNodeDiskSize    string
 	// OS image
-	Image          string
-	Mux            sync.Mutex
-	BootstrapToken string
+	Image             string
+	Mux               sync.Mutex
+	BootstrapToken    string
+	KubernetesCertKey string
 }
 
 // validateConfig checks if cluster configuration is valid.
@@ -125,7 +126,7 @@ func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) (*Inst
 		return lbVM, ErrVMAlreadyExist
 	}
 	// install lb software packages and transfer lb configuration file
-	if _, err := lbVM.RunCmd([]string{"sudo", "apt-get", "install", "haproxy", "-y"}); err != nil {
+	if _, err := RunCmd(lbName, []string{"sudo", "apt-get", "install", "haproxy", "-y"}); err != nil {
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
 		return lbVM, err
 	}
@@ -133,11 +134,11 @@ func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) (*Inst
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
 		return lbVM, err
 	}
-	if _, err := lbVM.RunCmd([]string{"sudo", "cp", "/tmp/haproxy.cfg", "/etc/haproxy/haproxy.cfg"}); err != nil {
+	if _, err := RunCmd(lbName, []string{"sudo", "cp", "/tmp/haproxy.cfg", "/etc/haproxy/haproxy.cfg"}); err != nil {
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
 		return lbVM, err
 	}
-	if _, err := lbVM.RunCmd([]string{"sudo", "systemctl", "restart", "haproxy"}); err != nil {
+	if _, err := RunCmd(lbName, []string{"sudo", "systemctl", "restart", "haproxy"}); err != nil {
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
 		return lbVM, err
 	}
@@ -201,7 +202,7 @@ func (cluster *Cluster) CreateKubeVMs(cloudInitPath string, numWorkers int) {
 		vms <- vmCfg
 	}
 	// fill the vms jobs queue with compute nodes
-	for i := 0; i < cluster.CmpNodeNumber; i++ {
+	for i := 0; i < cluster.CmpNodesNumber; i++ {
 		vmName := fmt.Sprintf("%s-cmp-%d", cluster.Name, i)
 		vmCfg, err := NewInstanceConfig(cluster.CmpNodesCores, cluster.CmpNodesMemory,
 			cluster.CmpNodesDiskSize, cluster.Image, vmName, cloudInitPath)
@@ -244,4 +245,89 @@ func (cluster *Cluster) AddControlIP(IP string) {
 		cluster.CtrlNodesIPs = append(cluster.CtrlNodesIPs, IP)
 		cluster.Mux.Unlock()
 	}
+}
+
+// GetCertHash retrieves the bootstrap CA certificate hash to populate kubeadm yaml configuration file.
+// The hash is generated and stored in the first control node at the path /tmp/kubeadm-cert-hash. The hash
+// is directly set as a Cluster attribute. This should be run after the control-0 VM is alive.
+func (cluster *Cluster) GetCertHash() (string, error) {
+	firstCtrlName := fmt.Sprintf("%s-ctrl-0", cluster.Name)
+	return RunCmd(firstCtrlName, []string{"cat", "/tmp/kubeadm-cert-hash"})
+}
+
+// InstallCNI installs the cluster CNI. For now, only cilium is supported and is directly hardcoded
+// in the tool.
+func (cluster *Cluster) InstallCNI() error {
+	firstCtrlName := fmt.Sprintf("%s-ctrl-0", cluster.Name)
+	_, err := RunCmd(firstCtrlName, []string{"cilium", "install"})
+	if err != nil {
+		Logger.Error("unable to install cilium cni", err, "cluster", cluster.Name)
+	}
+	return err
+}
+
+// GetMasterJoinCMD build the master join command to join other master nodes
+func (cluster *Cluster) GetMasterJoinCMD() ([]string, error) {
+	certHash, err := cluster.GetCertHash()
+	if err != nil {
+		Logger.Error("unable to get cluster certificate hash", err, "cluster-name", cluster.Name)
+		return []string{}, err
+	}
+	cmd := []string{"sudo", "kubeadm", "join"}
+	cmd = append(cmd, cluster.PublicAPIEndpoint+":6443")
+	cmd = append(cmd, "--token", cluster.BootstrapToken)
+	cmd = append(cmd, "--discovery-token-ca-cert-hash", certHash)
+	cmd = append(cmd, "--control-plane", "--certificate-key", cluster.KubernetesCertKey)
+	return cmd, nil
+}
+
+// GetWorkerJoinCMD build the master join command to join other master nodes
+func (cluster *Cluster) GetWorkerJoinCMD() ([]string, error) {
+	certHash, err := cluster.GetCertHash()
+	if err != nil {
+		Logger.Error("unable to get cluster certificate hash", err, "cluster-name", cluster.Name)
+		return []string{}, err
+	}
+	cmd := []string{"sudo", "kubeadm", "join"}
+	cmd = append(cmd, cluster.PublicAPIEndpoint+":6443")
+	cmd = append(cmd, "--token", cluster.BootstrapToken)
+	cmd = append(cmd, "--discovery-token-ca-cert-hash", certHash)
+	return cmd, nil
+}
+
+// GetControlVM return a VM instance populated with a control node parameters.
+// This is useful to generate the configuration of an existing vm instance to apply specific instance related
+// methods on them (for instance, file transfer)
+func (cluster *Cluster) GetControlVM(vmName string, cloudInitPath string) (*Instance, error) {
+	vm, err := NewInstanceConfig(
+		cluster.CtrlNodesCores,
+		cluster.CtrlNodesMemory,
+		cluster.CtrlNodesDiskSize,
+		cluster.Image,
+		vmName,
+		cloudInitPath,
+	)
+	if err != nil {
+		Logger.Error("unable to generate control instance config", err, "instance-name", vmName,
+			"cluster", cluster.Name)
+		return nil, err
+	}
+	return vm, nil
+}
+
+// KubeInit runs kubeadm init cmd from control plane node0
+func (cluster *Cluster) KubeInit(remoteHomeDir string) error {
+	cmd := []string{"sudo", "kubeadm", "init", "--config", "/tmp/cluster.yaml", "--upload-certs"}
+	firstCtrlNodeName := fmt.Sprintf("%s-ctrl-0", cluster.Name)
+	if _, err := RunCmd(firstCtrlNodeName, cmd); err != nil {
+		Logger.Error("kubeadm init command failed", err, "cluster", cluster.Name)
+		return err
+	}
+	copyCmd := []string{"mkdir", "-p", remoteHomeDir + "/.kube", "&&"}
+	copyCmd = append(copyCmd, "sudo", "cp", "-i", "/etc/kubernetes/admin.conf", remoteHomeDir+"/.kube/config")
+	if _, err := RunCmd(firstCtrlNodeName, copyCmd); err != nil {
+		Logger.Error("cannot copy kube auth file to user home directory", err, "cluster", cluster.Name)
+		return err
+	}
+	return nil
 }

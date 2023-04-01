@@ -106,10 +106,43 @@ sha256sum --check cilium-linux-${CLI_ARCH}.tar.gz.sha256sum
 sudo tar xzvfC cilium-linux-${CLI_ARCH}.tar.gz /usr/local/bin
 rm cilium-linux-${CLI_ARCH}.tar.gz{,.sha256sum}
 
+# Create ssl certificate if this is ctrl-0 node
+if [[ "$(hostname)" == *"-ctrl-0"* ]]; then
+  PKI_LOCATION=/etc/kubernetes/pki
+  mkdir -p $PKI_LOCATION
+  openssl genrsa -out ${PKI_LOCATION}/ca.key 2048
+  openssl req -x509 -new -nodes -key ${PKI_LOCATION}/ca.key -subj "/CN=$(hostname)" -days 10000 -out ${PKI_LOCATION}/ca.crt
+  openssl x509 -pubkey -in ${PKI_LOCATION}/ca.crt | openssl rsa -pubin -outform der 2>/dev/null \
+   | openssl dgst -sha256 -hex | sed 's/^.* /sha256:/' | tee -a /tmp/kubeadm-cert-hash
+fi
 
 # ------------ DO THIS ON THE FIRST CTRL NODE ---------------
-# sudo kubeadm init --pod-network-cidr 10.200.0.0/16 --upload-certs --control-plane-endpoint 35.209.161.137
+# sudo kubeadm init --config cluster.yaml --upload-certs
+# c91d799bfa03fa67107ce07ceb29e67419e5225d4757c93c31ef27bfe8366f0c
 # cilium install
+
+echo '
+You can now join any number of the control-plane node running the following command on each as root:
+
+  kubeadm join 10.98.101.94:6443 --token 5ff0en.1vg4kt1yhk3ty9t7 \
+        --discovery-token-ca-cert-hash sha256:50630b0116f111ee238f8f4b59e951dccf7f2da52cde8d6bc137542dcb5b63cd \
+        --control-plane --certificate-key c91d799bfa03fa67107ce07ceb29e67419e5225d4757c93c31ef27bfe8366f0c
+
+
+Please note that the certificate-key gives access to cluster sensitive data, keep it secret!
+As a safeguard, uploaded-certs will be deleted in two hours; If necessary, you can use
+"kubeadm init phase upload-certs --upload-certs" to reload certs afterward.
+
+Then you can join any number of worker nodes by running the following on each as root:
+
+sudo kubeadm join 10.98.101.94:6443 --token 5ff0en.1vg4kt1yhk3ty9t7 \
+        --discovery-token-ca-cert-hash sha256:50630b0116f111ee238f8f4b59e951dccf7f2da52cde8d6bc137542dcb5b63cd
+
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+'
 
 # Ready to continue
 sleep 3
