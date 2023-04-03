@@ -11,6 +11,7 @@ func main() {
 	//app.SetLogLevel(app.Error)
 
 	// 1. Create a cluster configuration
+	fmt.Println("------ step 1 ------------")
 	cluster := &app.Cluster{
 		Name:              "cluster100",
 		PodSubnet:         "10.200.0.0/16",
@@ -31,6 +32,7 @@ func main() {
 	}
 	// 2. generate cloud init file and get it's path
 	// @TODO, Check cluster configuration before using it
+	fmt.Println("------ step 2 ------------")
 	cloudInitPath, err := app.GenerateConfigCloudInit(cluster)
 	if err != nil {
 		app.Logger.Error("cannot get home dir", err)
@@ -38,15 +40,18 @@ func main() {
 	fmt.Println(cluster)
 	fmt.Println("------------------------------")
 	// 3. create vms, execpt LB
-	cluster.CreateKubeVMs(cloudInitPath, 1)
+	fmt.Println("------ step 3 ------------")
+	cluster.CreateKubeVMs(cloudInitPath, 2)
 	fmt.Println("------------------------------")
 	fmt.Println(cluster)
 	// 4. generate LB configs
+	fmt.Println("------ step 4 ------------")
 	lbConfPath, err := app.GenerateConfigLB(cluster)
 	if err != nil {
 		app.Logger.Error("cannot get home dir", err)
 	}
 	// 6. Create LB
+	fmt.Println("------ step 6 ------------")
 	vm, err := cluster.CreateLB(cloudInitPath, lbConfPath)
 	fmt.Println(err)
 	IP, _ := vm.GetIP()
@@ -56,6 +61,7 @@ func main() {
 	fmt.Println(cluster)
 	fmt.Println("Generate and use kubeadm config file")
 	// 7. genetrate kubeadm config
+	fmt.Println("------ step 7 ------------")
 	kubeadmInitConfPath, err := app.GenerateConfigKubeadm(cluster)
 	if err != nil {
 		os.Exit(1)
@@ -65,20 +71,24 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
-	firstCtrlNode.Transfer(kubeadmInitConfPath, "/tmp/")
+	err = app.Transfer(firstCtrlNode.Name, kubeadmInitConfPath, "cluster.yaml")
+	fmt.Println(err)
 	// 8. Run kubeadm init on ctrl-0
+	fmt.Println("------ step 8 ------------")
 	err = cluster.KubeInit("/home/ubuntu")
 	if err != nil {
 		fmt.Println("Kubeadm init failed")
 		os.Exit(1)
 	}
 	// 9. Install cni
+	fmt.Println("------ step 9 ------------")
 	err = cluster.InstallCNI()
 	if err != nil {
 		fmt.Println("unable to install cni")
 		os.Exit(1)
 	}
 	// 10. Join the other controllers
+	fmt.Println("------ step 10 ------------")
 	ctrlJoinCMD, err := cluster.GetMasterJoinCMD()
 	if err != nil {
 		fmt.Println("unable to generate control join cmd")
@@ -91,7 +101,8 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	// 10. Join the workers
+	// 11. Join the workers
+	fmt.Println("------ step 11 ------------")
 	workerJoinCMD, err := cluster.GetWorkerJoinCMD()
 	if err != nil {
 		fmt.Println("unable to generate worker join cmd")

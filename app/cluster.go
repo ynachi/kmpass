@@ -130,7 +130,7 @@ func (cluster *Cluster) CreateLB(cloudInitPath string, lbConfPath string) (*Inst
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
 		return lbVM, err
 	}
-	if err := lbVM.Transfer(lbConfPath, "haproxy.cfg"); err != nil {
+	if err := Transfer(lbName, lbConfPath, "haproxy.cfg"); err != nil {
 		Logger.Error("unable to create LB vm instance", err, "instance-name", lbName)
 		return lbVM, err
 	}
@@ -323,9 +323,18 @@ func (cluster *Cluster) KubeInit(remoteHomeDir string) error {
 		Logger.Error("kubeadm init command failed", err, "cluster", cluster.Name)
 		return err
 	}
-	copyCmd := []string{"mkdir", "-p", remoteHomeDir + "/.kube", "&&"}
-	copyCmd = append(copyCmd, "sudo", "cp", "-i", "/etc/kubernetes/admin.conf", remoteHomeDir+"/.kube/config")
+	createFolderCmd := []string{"mkdir", "-p", remoteHomeDir + "/.kube"}
+	if _, err := RunCmd(firstCtrlNodeName, createFolderCmd); err != nil {
+		Logger.Error("cannot create kube config directory", err, "cluster", cluster.Name)
+		return err
+	}
+	copyCmd := []string{"sudo", "cp", "-i", "/etc/kubernetes/admin.conf", remoteHomeDir + "/.kube/config"}
 	if _, err := RunCmd(firstCtrlNodeName, copyCmd); err != nil {
+		Logger.Error("cannot copy kube auth file to user home directory", err, "cluster", cluster.Name)
+		return err
+	}
+	chownCmd := []string{"sudo", "chown", "1000:1000", "/home/ubuntu/.kube/config"}
+	if _, err := RunCmd(firstCtrlNodeName, chownCmd); err != nil {
 		Logger.Error("cannot copy kube auth file to user home directory", err, "cluster", cluster.Name)
 		return err
 	}

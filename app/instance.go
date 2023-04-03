@@ -88,35 +88,15 @@ func (vm *Instance) Create() error {
 
 // Transfer transfers a file to the temp folder of an Instance. It leverages multipass transfer command. dest is
 // the name of the dest file. It will appear in the VM as /tmp/dest
-func (vm *Instance) Transfer(src string, dst string) error {
-	if vm == nil {
-		return errors.New("cannot transfer to nil VM")
-	}
-	if !vm.Exist() {
-		return ErrVMNotExist
-	}
-	if vm.IsStopped() {
-		return ErrVMNotRunning
-	}
-	cmdConfig := []string{"transfer", src, fmt.Sprintf("%s:/tmp/%s", vm.Name, dst)}
+func Transfer(vmName string, src string, dst string) error {
+	cmdConfig := []string{"transfer", src, fmt.Sprintf("%s:/tmp/%s", vmName, dst)}
 	cmd := exec.Command("multipass", cmdConfig...)
-	err := cmd.Start()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		Logger.Error("failed to copy file to instance", err, "name", vm.Name, "src", src, "dst", dst)
-		return err
+		Logger.Error("failed to copy file to instance", err, "name", vmName, "src", src, "dst", dst)
+		Logger.Debug("failed to copy file to instance", "stdout", out)
 	}
-	err = cmd.Wait()
-	if err != nil {
-		Logger.Error("failed to copy file to instance", err, "name", vm.Name, "src", src, "dst", dst)
-		return err
-	}
-	if cmd.ProcessState.ExitCode() != 0 {
-		err = errors.New("non 0 status code encountered by the file copy command")
-		Logger.Error("failed to copy file to instance", err, "name", vm.Name, "src", src, "dst", dst)
-		return err
-	}
-	Logger.Info("file copied with success", "name", vm.Name, "src", src, "dst", dst)
-	return nil
+	return err
 }
 
 // RunCmd run commands in a VM. It leverages multipass exec command. Returns the combined output (stderr + stdout) of
