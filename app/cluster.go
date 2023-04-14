@@ -46,10 +46,10 @@ type Cluster struct {
 	KubernetesCertKey string
 }
 
-// validateConfig checks if cluster configuration is valid.
+// ValidateConfig checks if cluster configuration is valid.
 // It checks Disk sizes, memory sizes, and validity of IP addresses
 // @TODO; add more validation (duplicate IPs, PodSubnet, memory and disk sizes, number of nodes)
-func (cluster *Cluster) validateConfig() error {
+func (cluster *Cluster) ValidateConfig() error {
 	if !(validateMemoryFormat(cluster.LBNodeMemory) && validateMemoryFormat(cluster.CtrlNodesMemory) && validateMemoryFormat(cluster.CmpNodesMemory)) {
 		return ErrMemFormat
 	}
