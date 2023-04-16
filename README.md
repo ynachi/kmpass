@@ -6,6 +6,9 @@ includes at least 3 control plane nodes and 1 worker node. Every node is built i
  golden OS). The build deployment may be slow on a single CPU. That why you can span it across multiple
  CPUs if available in your environment. Cilium CNI is enforced for now.
 
+# prerequisites
+Install multipass by following the instructions here https://multipass.run/install.
+
 ## Overview of the cli options
 ```bash
 ./kmpass-0.1.0-linux-amd64 --help
