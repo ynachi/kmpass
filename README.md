@@ -57,6 +57,24 @@ Example
 
 kmpass --cluster app300 -wnodes 3 --parallel 3
 
+# check the nodes installed by multipass
+multipass list
+Name                    State             IPv4             Image
+app300-cmp-0            Running           10.175.83.148    Ubuntu 20.04 LTS
+                                          10.0.2.54
+app300-cmp-1            Running           10.175.83.236    Ubuntu 20.04 LTS
+                                          10.0.4.183
+app300-cmp-2            Running           10.175.83.137    Ubuntu 20.04 LTS
+                                          10.0.5.110
+app300-ctrl-0           Running           10.175.83.54     Ubuntu 20.04 LTS
+                                          10.0.0.241
+app300-ctrl-1           Running           10.175.83.71     Ubuntu 20.04 LTS
+                                          10.0.1.73
+app300-ctrl-2           Running           10.175.83.44     Ubuntu 20.04 LTS
+                                          10.0.3.122
+app300-lb01             Running           10.175.83.220    Ubuntu 20.04 LTS
+
+
 # after it's done, connect to one of the ctrl node and check your k8s installation
 
 multipass exec app300-ctrl-0 bash
