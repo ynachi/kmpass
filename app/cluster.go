@@ -40,8 +40,11 @@ type Cluster struct {
 	LBNodeCore        int
 	LBNodeDiskSize    string
 	// OS image
-	Image             string
-	Mux               sync.Mutex
+	Image string
+	Mux   sync.Mutex
+	// Bootstrap Tokens take the form of abcdef.0123456789abcdef.
+	// More formally, they must match the regular expression [a-z0-9]{6}\.[a-z0-9]{16}.
+	// They can also be created using the command kubeadm token create.
 	BootstrapToken    string
 	KubernetesCertKey string
 }
@@ -50,23 +53,35 @@ type Cluster struct {
 // It checks Disk sizes, memory sizes, and validity of IP addresses
 // @TODO; add more validation (duplicate IPs, PodSubnet, memory and disk sizes, number of nodes)
 func (cluster *Cluster) ValidateConfig() error {
+	// validate memory and disk formats. They use the same function for validation as they share the same format
 	if !(validateMemoryFormat(cluster.LBNodeMemory) && validateMemoryFormat(cluster.CtrlNodesMemory) && validateMemoryFormat(cluster.CmpNodesMemory)) {
+		Logger.Debug("invalid memory format", "cluster", cluster.Name)
 		return ErrMemFormat
 	}
 	if !(validateMemoryFormat(cluster.LBNodeDiskSize) && validateMemoryFormat(cluster.CtrlNodesDiskSize) && validateMemoryFormat(cluster.CmpNodesDiskSize)) {
+		Logger.Debug("invalid disk size format", "cluster", cluster.Name)
 		return ErrMemFormat
 	}
-	return nil
-}
-
-func validateIPs(ips ...string) bool {
-	for _, ip := range ips {
-		ipObject := net.ParseIP(ip)
-		if ipObject == nil {
-			return false
-		}
+	// validate control nodes number
+	if cluster.CtrlNodesNumber < minCtrlNodes {
+		Logger.Debug("a cluster requires at least 3 control nodes", "ctrl-nodes-num", cluster.CtrlNodesNumber)
+		return ErrMinControlNodes
 	}
-	return true
+	if cluster.CmpNodesNumber%2 == 0 {
+		Logger.Debug("an ood number of control nodes is required", "ctrl-nodes-num", cluster.CtrlNodesNumber)
+		return ErrOddNumberCtrlNode
+	}
+	// validate worker nodes number
+	if cluster.CmpNodesCores < minCmpNodes {
+		Logger.Debug("a cluster requires at least 1 worker nodes", "worker-nodes-num", cluster.CmpNodesNumber)
+		return ErrMinComputeNodes
+	}
+	// validate cluster Pod subnet format
+	if _, _, err := net.ParseCIDR(cluster.PodSubnet); err != nil {
+		Logger.Debug("cluster Pod subnet address is invalid", "cluster-ip", cluster.PodSubnet)
+		return ErrInvalidIPV4Address
+	}
+	return nil
 }
 
 // generateConfigFromTemplate configuration files from templates. Will be used to generate LB and kubernetes

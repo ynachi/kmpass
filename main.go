@@ -3,34 +3,41 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
-
 	"github.com/ynachi/kmpass/app"
+	"os"
 )
 
 func main() {
 	clusterName := flag.String("cluster", "cluster100", "Name of the kubernetes cluster to deploy.")
 	podSubnet := flag.String("pod-subnet", "10.200.0.0/16",
 		"Subnet used by pods. Note that this is different from the node's subnet.")
-	ctrlNodesNumber := flag.Int("ctrl-nodes", 3, "Number of control nodes. Should be minimum 3.")
-	workerNodesNumber := flag.Int("worker-nodes", 1, "Number of worker nodes. Should be minimum 1.")
+	ctrlNodesNumber := flag.Int("cnodes", 3, "Number of control nodes. Should be minimum 3.")
+	workerNodesNumber := flag.Int("wnodes", 1, "Number of worker nodes. Should be minimum 1.")
 	ctrlCores := flag.Int("ccores", 2, "Number of control nodes vcpus.")
 	workerCores := flag.Int("wcores", 2, "Number of worker nodes vcpus.")
-	ctrlMemory := flag.String("cmem", "4G", "Control nodes memory. Support k/K, m/M, g/G surfixes.")
-	workerMemory := flag.String("wmem", "4G", "Control nodes memory. Support k/K, m/M, g/G surfixes.")
-	lbMemory := flag.String("lmem", "4G", "load-balancer node memory. Support k/K, m/M, g/G surfixes.")
-	ctrlDisk := flag.String("cmem", "4G", "Control nodes disk size. Support k/K, m/M, g/G surfixes.")
-	workerDisk := flag.String("wmem", "4G", "Control nodes disk size. Support k/K, m/M, g/G surfixes.")
-	lbDisk := flag.String("lmem", "4G", "Load-balancer node disk size. Support k/K, m/M, g/G surfixes.")
+	ctrlMemory := flag.String("cmem", "4G", "Control nodes memory. Support k/K, m/M, g/G suffixes.")
+	workerMemory := flag.String("wmem", "4G", "Control nodes memory. Support k/K, m/M, g/G suffixes.")
+	lbMemory := flag.String("lmem", "4G", "load-balancer node memory. Support k/K, m/M, g/G suffixes.")
+	ctrlDisk := flag.String("cdisk", "20G", "Control nodes disk size. Support k/K, m/M, g/G suffixes."+
+		"Its recommended to give at least 20G for a working installation. This field is not yet validated by the tool.")
+	workerDisk := flag.String("wdisk", "20G", "Control nodes disk size. Support k/K, m/M, g/G suffixes."+
+		"\"Its recommended to give at least 20G for a working installation. This field is not yet validated by the tool.\"")
+	lbDisk := flag.String("ldisk", "10G", "Load-balancer node disk size. Support k/K, m/M, g/G suffixes."+
+		"\"Its recommended to give at least 10G for a working installation. This field is not yet validated by the tool.\"")
 	lbCores := flag.Int("lcores", 2, "Number of lb node vcpus.")
 	image := flag.String("image", "20.04", "Ubuntu release version. Only 20.04 works at this time.")
-	bootstrapToken := flag.String("token", "5ff0en.1vg4kt1yhk3ty9t7", "Token used to bootstrap the cluster.")
-	masterKey := "c91d862bfa03fa67107ce07ceb29e67419e5225d4757c93c31ef27bfe8366f0a"
-	masterJoinKey := flag.String("jkey", masterKey, "Key used to join the master node as needed by kubeadm.")
+	bootstrapToken := flag.String("token", "5ff0en.1vg4kt1yhk3ty9t7", "Token used to bootstrap the "+
+		"cluster. Bootstrap Tokens take the form of abcdef.0123456789abcdef. More formally, they must match the regular "+
+		"expression [a-z0-9]{6}\\.[a-z0-9]{16}. They can also be created using the command kubeadm token create.")
+	masterKey := "c91d799bfa03fa67107ce07ceb29e67419e5225d4757c93c31ef27bfe8366f0c"
+	masterJoinKey := flag.String("ckey", masterKey, "Certificate key used to join the master."+
+		"Can be generated using kubeadm certs certificate-key or just use something that matches the format of the"+
+		"default key.")
 	parallel := flag.Int("parallel", 1, "Number of vms to create concurrently.")
 	flag.Parse()
-	// We will use environment variable for the log level
-	//app.SetLogLevel(app.Error)
+
+	//@TODO We will use environment variable for the log level
+	app.SetLogLevel(app.Debug)
 
 	// 1. Create a cluster configuration
 	fmt.Println("------ step 1 ------------")
