@@ -104,7 +104,7 @@ func TestCluster_validateConfig(t *testing.T) {
 				LBNodeCore:        tt.fields.LBNodeCore,
 				LBNodeDiskSize:    tt.fields.LBNodeDiskSize,
 			}
-			if err := cluster.validateConfig(); (err != nil) != tt.wantErr {
+			if err := cluster.ValidateConfig(); (err != nil) != tt.wantErr {
 				t.Errorf("validateConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
