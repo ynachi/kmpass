@@ -1,19 +1,20 @@
 package app
 
-import "testing"
+import (
+	"testing"
+)
 
-func TestCluster_validateConfig(t *testing.T) {
+func TestCluster_ValidateConfig(t *testing.T) {
 	type fields struct {
 		Name              string
-		PublicAPIEndpoint string
 		PodSubnet         string
-		CmpNodesIPs       []string
 		CmpNodesMemory    string
 		CmpNodesCores     int
+		CmpNodesNumber    int
 		CmpNodesDiskSize  string
-		CtrlNodesIPs      []string
 		CtrlNodesMemory   string
 		CtrlNodesCores    int
+		CtrlNodesNumber   int
 		CtrlNodesDiskSize string
 		LBNodeMemory      string
 		LBNodeCore        int
@@ -29,59 +30,75 @@ func TestCluster_validateConfig(t *testing.T) {
 			name: "cluster_good_1",
 			fields: fields{
 				Name:              "cluster100",
-				PublicAPIEndpoint: "10.10.10.1",
 				PodSubnet:         "10.10.10.0/24",
-				CmpNodesIPs:       []string{"10.10.10.2", "10.10.10.3", "10.10.10.4"},
 				CmpNodesMemory:    "4G",
 				CmpNodesCores:     3,
 				CmpNodesDiskSize:  "10G",
-				CtrlNodesIPs:      []string{"10.10.10.21", "10.10.10.31", "10.10.10.41"},
 				CtrlNodesMemory:   "2G",
 				CtrlNodesCores:    3,
 				CtrlNodesDiskSize: "20G",
 				LBNodeMemory:      "2G",
 				LBNodeCore:        2,
 				LBNodeDiskSize:    "10G",
+				CmpNodesNumber:    1,
+				CtrlNodesNumber:   3,
 			},
 			wantErr: false,
 		},
 		{
-			name: "cluster_bad_1",
+			name: "cluster_bad_pod_subnet",
 			fields: fields{
 				Name:              "cluster201",
-				PublicAPIEndpoint: "10.10.1",
-				PodSubnet:         "10.10.10.0/24",
-				CmpNodesIPs:       []string{"10.10.10.2", "10.10.10.3", "10.10.10.4"},
+				PodSubnet:         "10.10.10/24",
 				CmpNodesMemory:    "4G",
 				CmpNodesCores:     3,
 				CmpNodesDiskSize:  "10G",
-				CtrlNodesIPs:      []string{"10.10.10.21", "10.10.10.31", "10.10.10.41"},
 				CtrlNodesMemory:   "2G",
 				CtrlNodesCores:    3,
 				CtrlNodesDiskSize: "20G",
 				LBNodeMemory:      "2G",
 				LBNodeCore:        2,
 				LBNodeDiskSize:    "10G",
+				CtrlNodesNumber:   3,
+				CmpNodesNumber:    5,
 			},
 			wantErr: true,
 		},
 		{
-			name: "cluster_bad_2",
+			name: "cluster_bad_memory_fmt",
 			fields: fields{
 				Name:              "cluster100",
-				PublicAPIEndpoint: "10.10.10.1",
 				PodSubnet:         "10.10.10.0/24",
-				CmpNodesIPs:       []string{"10.10.10.2", "10.10.10.3", "10.10.10.4"},
 				CmpNodesMemory:    "4Gg",
 				CmpNodesCores:     3,
 				CmpNodesDiskSize:  "10G",
-				CtrlNodesIPs:      []string{"10.10.10.21", "10.10.10.31", "10.10.10.41"},
 				CtrlNodesMemory:   "2G",
 				CtrlNodesCores:    3,
 				CtrlNodesDiskSize: "20G",
 				LBNodeMemory:      "2G",
 				LBNodeCore:        2,
 				LBNodeDiskSize:    "10G",
+				CmpNodesNumber:    1,
+				CtrlNodesNumber:   5,
+			},
+			wantErr: true,
+		},
+		{
+			name: "cluster_bad_even_ctrl_nodes",
+			fields: fields{
+				Name:              "cluster100",
+				PodSubnet:         "10.10.10.0/24",
+				CmpNodesMemory:    "4g",
+				CmpNodesCores:     3,
+				CmpNodesDiskSize:  "10G",
+				CtrlNodesMemory:   "2G",
+				CtrlNodesCores:    3,
+				CtrlNodesDiskSize: "20G",
+				LBNodeMemory:      "2G",
+				LBNodeCore:        2,
+				LBNodeDiskSize:    "10G",
+				CmpNodesNumber:    1,
+				CtrlNodesNumber:   6,
 			},
 			wantErr: true,
 		},
@@ -90,22 +107,21 @@ func TestCluster_validateConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cluster := &Cluster{
 				Name:              tt.fields.Name,
-				PublicAPIEndpoint: tt.fields.PublicAPIEndpoint,
 				PodSubnet:         tt.fields.PodSubnet,
-				CmpNodesIPs:       tt.fields.CmpNodesIPs,
 				CmpNodesMemory:    tt.fields.CmpNodesMemory,
 				CmpNodesCores:     tt.fields.CmpNodesCores,
+				CmpNodesNumber:    tt.fields.CmpNodesNumber,
 				CmpNodesDiskSize:  tt.fields.CmpNodesDiskSize,
-				CtrlNodesIPs:      tt.fields.CtrlNodesIPs,
 				CtrlNodesMemory:   tt.fields.CtrlNodesMemory,
 				CtrlNodesCores:    tt.fields.CtrlNodesCores,
+				CtrlNodesNumber:   tt.fields.CtrlNodesNumber,
 				CtrlNodesDiskSize: tt.fields.CtrlNodesDiskSize,
 				LBNodeMemory:      tt.fields.LBNodeMemory,
 				LBNodeCore:        tt.fields.LBNodeCore,
 				LBNodeDiskSize:    tt.fields.LBNodeDiskSize,
 			}
 			if err := cluster.ValidateConfig(); (err != nil) != tt.wantErr {
-				t.Errorf("validateConfig() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ValidateConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
