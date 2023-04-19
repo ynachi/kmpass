@@ -7,6 +7,9 @@ includes at least 3 control plane nodes and 1 worker node. Every node is built i
  CPUs if available in your environment. Cilium CNI is enforced for now.
 
 # prerequisites
+
+Note: **Only Linux host machine (Ubuntu) was tested at this time.** 
+
 Install multipass by following the instructions here https://multipass.run/install.
 
 ## Overview of the cli options
