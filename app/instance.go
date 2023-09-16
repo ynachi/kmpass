@@ -9,12 +9,6 @@ import (
 	"strings"
 )
 
-// MinMemory is the minimal acceptable memory for a VM instance
-const MinMemory = "2G"
-
-// MinDisk is the minimal disk size that can be assigned to a VM instance
-const MinDisk = "1G"
-
 // Instance represents a multipass VM, typically created using the launch subcommand.
 // Try multipass launch --help for more info.
 type Instance struct {
@@ -159,6 +153,6 @@ func (vm *Instance) IsStopped() bool {
 
 // validateMemoryFormat checks if an instance memory or disk size is valid. eg: 4G
 func validateMemoryFormat(size string) bool {
-	re := regexp.MustCompile(`^[1-9][0-9]*(K|M|G|k|m|g)$`)
+	re := regexp.MustCompile(`^[1-9][0-9]*[KMGkmg]$`)
 	return re.MatchString(size)
 }

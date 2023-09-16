@@ -1,7 +1,7 @@
 package app
 
 import (
-	"golang.org/x/exp/slog"
+	"log/slog"
 	"os"
 	"os/exec"
 )
@@ -17,7 +17,7 @@ const (
 
 // Logger Application wide logger
 var programLevel = new(slog.LevelVar) // Info by default
-var h = slog.HandlerOptions{Level: programLevel}.NewJSONHandler(os.Stdout)
+var h = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: programLevel})
 var Logger = slog.New(h)
 
 // init logger
